@@ -1,0 +1,19 @@
+# CMake build directories
+cmake-build-debug/
+cmake-build-release/
+
+# Virtual environment
+src/.venv/
+
+# IDE-specific files
+.idea/
+*.sln
+*.suo
+*.user
+*.vcxproj.user
+
+# Generated and temporary files
+launcher.json
+uv.zip
+*.log
+*.tmp
