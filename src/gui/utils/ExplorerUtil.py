@@ -4,7 +4,7 @@ import subprocess
 
 from PySide6.QtWidgets import QFrame
 
-from gui.utils.MessageUtil import show_message, MessageType
+from src.gui.utils.MessageUtil import show_message, MessageType
 
 def open_in_explorer(parent: QFrame, path: str):
     absolute_path = os.path.abspath(path)

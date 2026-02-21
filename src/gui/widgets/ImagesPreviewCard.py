@@ -2,8 +2,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import CardWidget, BodyLabel, SingleDirectionScrollArea
 
-from gui.widgets.HomeCard import HomeCard
-from gui.widgets.ImagePreviewLabel import ImagePreviewLabel
+from src.gui.widgets.HomeCard import HomeCard
+from src.gui.widgets.ImagePreviewLabel import ImagePreviewLabel
 
 
 class ImagesPreviewCard(CardWidget):

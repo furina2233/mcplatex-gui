@@ -2,10 +2,9 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from qfluentwidgets import FluentIcon as FIF
 
-from gui.widgets.HomeCard import HomeCard
-from gui.widgets.ImagesPreviewCard import ImagesPreviewCard
-from gui.widgets.LogCard import LogCard
-from gui.widgets.TaskCard import TaskCard
+from src.gui.widgets.HomeCard import HomeCard
+from src.gui.widgets.ImagesPreviewCard import ImagesPreviewCard
+from src.gui.widgets.LogCard import LogCard
 
 timer = QTimer()
 

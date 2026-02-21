@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from qfluentwidgets import BodyLabel, ComboBox, setFont
 
-from gui.widgets.LineNumberTextEditWidget import LineNumberTextEdit
+from src.gui.widgets.LineNumberTextEditWidget import LineNumberTextEdit
 
 
 class PreviewPage(QWidget):

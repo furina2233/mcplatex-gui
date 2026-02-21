@@ -3,7 +3,7 @@ from typing import Union
 from PySide6.QtGui import QIcon
 from qfluentwidgets import FluentIcon as FIF, PushButton
 
-from gui.widgets.TaskCard import TaskCard
+from src.gui.widgets.TaskCard import TaskCard
 
 
 class OneButtonTaskCard(TaskCard):

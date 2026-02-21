@@ -1,6 +1,4 @@
 import os
-import platform
-import subprocess
 from typing import Union
 
 from PySide6.QtCore import Signal
@@ -8,8 +6,8 @@ from PySide6.QtGui import QIcon, Qt
 from PySide6.QtWidgets import QFileDialog
 from qfluentwidgets import SettingCard, FluentIconBase, PushButton, InfoBarPosition, InfoBar, PrimaryPushButton
 
-from gui.utils.ExplorerUtil import open_in_explorer
-from gui.utils.MessageUtil import show_message, MessageType
+from src.gui.utils.ExplorerUtil import open_in_explorer
+from src.gui.utils.MessageUtil import show_message, MessageType
 
 
 class HomeCard(SettingCard):
@@ -53,7 +51,7 @@ class HomeCard(SettingCard):
         self.images_path = QFileDialog.getOpenFileNames(
             parent=self,
             caption="选择要转换的图片",
-            dir="./",
+            dir="/",
             filter="图片文件 (*.png *.jpg *.jpeg);;所有文件 (*.*)"
         )[0]
         if self.images_path:

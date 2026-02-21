@@ -4,13 +4,13 @@ from PySide6.QtWidgets import QWidget, QApplication
 from qfluentwidgets import FluentWindow, FluentIcon as FIF, NavigationItemPosition
 from qfluentwidgets import Theme, setTheme
 
-from gui.pages.AboutPage import AboutPage
-from gui.pages.HomePage import HomePage
-from gui.pages.PreviewPage import PreviewPage
-from gui.pages.SettingPage import SettingPage
-from gui.pages.ValuesPage import ValuesPage
-from gui.utils.ScreenSizeUtil import get_screen_size
-from gui.widgets.SquareNavigationWidget import SquareNavigationWidget
+from src.gui.pages.AboutPage import AboutPage
+from src.gui.pages.HomePage import HomePage
+from src.gui.pages.PreviewPage import PreviewPage
+from src.gui.pages.SettingPage import SettingPage
+from src.gui.pages.ValuesPage import ValuesPage
+from src.gui.utils.ScreenSizeUtil import get_screen_size
+from src.gui.widgets.SquareNavigationWidget import SquareNavigationWidget
 
 timer = QTimer()
 
