@@ -27,7 +27,7 @@ class HomePage(QWidget):
         self._set_vector_layout()
 
     def _add_home_card(self):
-        home_card = HomeCard(parent=self,title="McpLatex",icon="res/icons/icon_home_card.png",content="软件描述")
+        home_card = HomeCard(parent=self,title="McpLatex",icon="../res/icons/icon_home_card.png",content="软件描述")
         self.layout.addWidget(home_card)
         return home_card
 
