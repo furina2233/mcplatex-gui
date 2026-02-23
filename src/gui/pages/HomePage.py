@@ -22,8 +22,6 @@ class HomePage(QWidget):
         self._add_images_preview_card()
         self._add_log_card()
 
-
-
         self._set_vector_layout()
 
     def _add_home_card(self):

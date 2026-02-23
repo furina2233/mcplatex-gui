@@ -2,11 +2,12 @@
 chcp 65001 >nul 2>&1
 setlocal
 
-set "VENV_DIR=src\.venv"
+set "BASE_DIR=%~dp0..\"
+set "VENV_DIR=%BASE_DIR%\.venv"
 set "VENV_ACTIVATE=%VENV_DIR%\Scripts\activate.bat"
 set "PIP_PATH=%VENV_DIR%\Scripts\pip.exe"
-set "REQUIREMENTS_FILE=src\requirements.txt"
-set "PYPROJECT_FILE=src\pyproject.toml"
+set "REQUIREMENTS_FILE=%BASE_DIR%\requirements.txt"
+set "PYPROJECT_FILE=%BASE_DIR%\pyproject.toml"
 
 :: 优先检测 Python，确保基础环境可用
 where python >nul 2>&1
@@ -28,7 +29,7 @@ echo 正在创建虚拟环境...
 :: 尝试使用 uv 创建
 where uv >nul 2>&1
 if %errorlevel% equ 0 (
-    uv venv %VENV_DIR% >nul 2>&1
+    uv venv "%VENV_DIR%" >nul 2>&1
     if %errorlevel% equ 0 (
         echo 成功使用 uv 创建虚拟环境
         set "USE_UV=1"
@@ -60,7 +61,7 @@ if exist "%REQUIREMENTS_FILE%" (
 
 if exist "%PYPROJECT_FILE%" (
     if defined USE_UV (
-        cd src && uv sync && cd ..
+        uv sync --project "%BASE_DIR%src"
     ) else (
         "%PIP_PATH%" install ./src
     )
