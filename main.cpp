@@ -39,11 +39,11 @@ void run_failed() {
 
 void activate() {
     std::cout<<"首次启动，正在配置环境..."<<std::endl;
-    if (!fs::exists("sync.bat")) {
+    if (!fs::exists("scripts\\init_venv.bat")) {
         std::cerr << "未找到配置环境脚本" << std::endl;
         run_failed();
     }
-    int exit_code = system("sync.bat");
+    int exit_code = system("scripts\\init_venv.bat");
     if (exit_code == 0) {
         std::cout << "环境配置成功" << std::endl;
         ACTIVATED = "true";
@@ -53,32 +53,59 @@ void activate() {
     }
 }
 
-void run_project() {
-    // 获取当前工作目录
-    fs::path venv_path = fs::current_path() / "src" / ".venv";
-    if (!fs::exists(venv_path)) {
-        std::cerr << "虚拟环境不存在，请先运行配置脚本" << std::endl;
-        run_failed();
-    }
+// void run_project() {
+//     // 获取当前工作目录
+//     fs::path venv_path = fs::current_path() / "src" / ".venv";
+//     if (!fs::exists(venv_path)) {
+//         std::cerr << "虚拟环境不存在，请先运行配置脚本" << std::endl;
+//         run_failed();
+//     }
+//
+//     fs::path python_exe = venv_path / "Scripts" / "python.exe";
+//
+//     if (!fs::exists(python_exe)) {
+//         std::cerr << "找不到Python解释器: " << python_exe << std::endl;
+//         run_failed();
+//     }
+//     fs::path script_path = fs::current_path() / "src" / "main.py";
+//     if (!fs::exists(script_path)) {
+//         std::cerr << "找不到主脚本: " << script_path << std::endl;
+//         run_failed();
+//     }
+//
+//
+//     std::string command = "set \"PYTHONPATH=" + fs::current_path().string() + "\" && " +
+//                           "cd /d \"" + (fs::current_path() / "src").string() + "\" && " +
+//                           "\"" + python_exe.string() + "\" main.py";
+//
+//     int exit_code = system(command.c_str());
+//     if (exit_code == 0) {
+//         exit(0);
+//     }
+//     std::cerr<<"项目运行失败"<<std::endl;
+//     exit_and_wait(1);
+// }
 
+void run_project() {
+    fs::path root_path = fs::current_path();
+
+    fs::path venv_path = root_path / ".venv";
     fs::path python_exe = venv_path / "Scripts" / "python.exe";
+    fs::path script_path = root_path / "src" / "main.py";
 
     if (!fs::exists(python_exe)) {
-        std::cerr << "找不到Python解释器: " << python_exe << std::endl;
+        std::cerr << "虚拟环境未就绪，请先运行配置脚本。" << std::endl;
         run_failed();
     }
-    fs::path script_path = fs::current_path() / "src" / "main_with_gui.py";
-    if (!fs::exists(script_path)) {
-        std::cerr << "找不到主脚本: " << script_path << std::endl;
-        run_failed();
-    }
-    std::string command = "cd /d \"" + (fs::current_path() / "src").string() + "\" && \".venv\\Scripts\\python.exe\" main_with_gui.py";
+
+    std::string command = "set \"PYTHONPATH=" + root_path.string() + "\" && " +
+                          "cd /d \"" + (root_path / "src").string() + "\" && " +
+                          "\"" + python_exe.string() + "\" main.py";
 
     int exit_code = system(command.c_str());
-    if (exit_code == 0) {
-        exit(0);
-    }
-    std::cerr<<"项目运行失败"<<std::endl;
+    if (exit_code == 0) exit(0);
+
+    std::cerr << "项目运行失败" << std::endl;
     exit_and_wait(1);
 }
 
