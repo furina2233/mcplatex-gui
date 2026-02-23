@@ -10,6 +10,7 @@ namespace  fs = std::filesystem;
 const std::string launcher_json_file_name = "launcher.json";
 
 std::string ACTIVATED = "false";
+std::string LATEX_INSTALLED = "false";
 
 void exit_and_wait(const int code) {
     system("pause");
@@ -19,6 +20,7 @@ void exit_and_wait(const int code) {
 void write_to_file() {
     json data;
     data["activated"] = ACTIVATED;
+    data["latex_installed"] = LATEX_INSTALLED;
 
     std::ofstream ofs(launcher_json_file_name);
     if (ofs.is_open()) {
@@ -32,6 +34,7 @@ void write_to_file() {
 
 void run_failed() {
     ACTIVATED = "false";
+    LATEX_INSTALLED = "false";
     write_to_file();
     std::cerr<<"请重新启动程序"<<std::endl;
     exit_and_wait(1);
@@ -53,38 +56,23 @@ void activate() {
     }
 }
 
-// void run_project() {
-//     // 获取当前工作目录
-//     fs::path venv_path = fs::current_path() / "src" / ".venv";
-//     if (!fs::exists(venv_path)) {
-//         std::cerr << "虚拟环境不存在，请先运行配置脚本" << std::endl;
-//         run_failed();
-//     }
-//
-//     fs::path python_exe = venv_path / "Scripts" / "python.exe";
-//
-//     if (!fs::exists(python_exe)) {
-//         std::cerr << "找不到Python解释器: " << python_exe << std::endl;
-//         run_failed();
-//     }
-//     fs::path script_path = fs::current_path() / "src" / "main.py";
-//     if (!fs::exists(script_path)) {
-//         std::cerr << "找不到主脚本: " << script_path << std::endl;
-//         run_failed();
-//     }
-//
-//
-//     std::string command = "set \"PYTHONPATH=" + fs::current_path().string() + "\" && " +
-//                           "cd /d \"" + (fs::current_path() / "src").string() + "\" && " +
-//                           "\"" + python_exe.string() + "\" main.py";
-//
-//     int exit_code = system(command.c_str());
-//     if (exit_code == 0) {
-//         exit(0);
-//     }
-//     std::cerr<<"项目运行失败"<<std::endl;
-//     exit_and_wait(1);
-// }
+void install_latex() {
+    std::cout << "正在安装 LaTeX 引擎..." << std::endl;
+    if (!fs::exists("scripts\\install_latex.bat")) {
+        std::cerr << "未找到 LaTeX 安装脚本: scripts\\install_latex.bat" << std::endl;
+        run_failed();
+    }
+    int exit_code = system("scripts\\install_latex.bat");
+    if (exit_code == 0) {
+        std::cout << "LaTeX 引擎安装成功" << std::endl;
+        LATEX_INSTALLED = "true";
+    } else {
+        std::cerr << "LaTeX 引擎安装失败" << std::endl;
+        LATEX_INSTALLED = "false";
+        run_failed();
+    }
+}
+
 
 void run_project() {
     fs::path root_path = fs::current_path();
@@ -131,8 +119,10 @@ int main() {
         activate();
         write_to_file();
     }
-    if (ACTIVATED=="true") {
-        run_project();
+    if (LATEX_INSTALLED == "false") {
+        install_latex();
+        write_to_file();
     }
+    run_project();
     return 0;
 }
