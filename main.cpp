@@ -109,6 +109,7 @@ int main() {
     try {
         launcher_json >> data;
         ACTIVATED = data["activated"];
+        LATEX_INSTALLED = data["latex_installed"];
     }catch (const std::exception& e) {
         std::cerr<<"无法解析launcher.json文件"<<std::endl;
         launcher_json.close();
