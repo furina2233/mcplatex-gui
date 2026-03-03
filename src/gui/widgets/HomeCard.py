@@ -1,11 +1,12 @@
 import os
 from typing import Union
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, QThread
 from PySide6.QtGui import QIcon, Qt
 from PySide6.QtWidgets import QFileDialog
 from qfluentwidgets import SettingCard, FluentIconBase, PushButton, InfoBarPosition, InfoBar, PrimaryPushButton
 
+from services.work_service import WorkService
 from src.gui.utils.ExplorerUtil import open_in_explorer
 from src.gui.utils.MessageUtil import show_message, MessageType
 
@@ -51,7 +52,7 @@ class HomeCard(SettingCard):
         self.images_path = QFileDialog.getOpenFileNames(
             parent=self,
             caption="选择要转换的图片",
-            dir="/",
+            dir="../",
             filter="图片文件 (*.png *.jpg *.jpeg);;所有文件 (*.*)"
         )[0]
         if self.images_path:
@@ -60,10 +61,26 @@ class HomeCard(SettingCard):
 
     def _on_click_to_transfer_button_clicked(self):
         if not self.images_path:
-            show_message(self,"请先选择图片",MessageType.ERROR)
+            show_message(self, "请先选择图片", MessageType.ERROR)
             return
-        show_message(self,"转换成功",MessageType.SUCCESS)
-        self._transfer_finished = True
+
+        # 禁用按钮避免重复点击
+        sender = self.sender()
+        sender.setEnabled(False)
+
+        # 创建并启动工作线程
+        self.work_thread = WorkThread(self.images_path)
+        self.work_thread.finished.connect(lambda success, msg: self._on_work_finished(success, msg, sender))
+        self.work_thread.start()
+
+    def _on_work_finished(self, success, error_msg, button):
+        button.setEnabled(True)  # 重新启用按钮
+
+        if success:
+            show_message(self, "转换成功", MessageType.SUCCESS)
+            self._transfer_finished = True
+        else:
+            show_message(self, "转换失败", MessageType.ERROR)
 
     def _on_show_pdf_button_clicked(self):
         pdf_path = "latex_output/main.pdf"
@@ -71,3 +88,19 @@ class HomeCard(SettingCard):
             open_in_explorer(self,pdf_path)
         else:
             show_message(self,"请先转换图片",MessageType.ERROR)
+
+
+class WorkThread(QThread):
+    finished = Signal(bool, str)  # 成功状态，错误消息
+
+    def __init__(self, images_path):
+        super().__init__()
+        self.images_path = images_path
+
+    def run(self):
+        try:
+            service = WorkService(self.images_path)
+            service.run()
+            self.finished.emit(True, "")
+        except Exception as e:
+            self.finished.emit(False, str(e))
