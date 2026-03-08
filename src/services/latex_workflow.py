@@ -9,7 +9,10 @@ from rich.console import Console
 
 from agents.cls_inspector import CLSInspectorInput
 from agents.combined_inspector import CombinedInspectorInput
+from agents.img_recognizer import ImgRecognizerInput
 from latex_build_and_preview import LatexEnvironmentError, build_and_preview
+from schemas import HeaderFooterSettings, ParagraphSettings, CaptionSettings, SectionSettings, AbstractSettings, \
+    AuthorSettings, GeometrySettings, FontSettings, TitleSettings
 # 导入工具和异常
 from utils.cls_builder import build_cls_code
 
@@ -33,6 +36,7 @@ class LatexReverseEngineeringService:
         tex_inspector_agent,
         cls_inspector_agent,
         combined_inspector_agent,
+        img_recognizer_agent,
         max_retries: int = 10,
     ):
         """
@@ -46,6 +50,7 @@ class LatexReverseEngineeringService:
         self.tex_inspector_agent = tex_inspector_agent
         self.cls_inspector_agent = cls_inspector_agent
         self.combined_inspector_agent = combined_inspector_agent
+        self.img_recognizer_agent = img_recognizer_agent
         self.max_retries = max_retries
         self.console = Console()
 
@@ -66,11 +71,13 @@ class LatexReverseEngineeringService:
 
             # 2. 阶段一：样式分析 (Sync Call)
             style_report = self._analyze_style(image_paths)
+            #
+            # # 3. 阶段二：生成初稿 (Async Concurrent)
+            # cls_output, tex_output = await self._generate_initial_code(
+            #     image_paths, style_report
+            # )
 
-            # 3. 阶段二：生成初稿 (Async Concurrent)
-            cls_output, tex_output = await self._generate_initial_code(
-                image_paths, style_report
-            )
+            cls_output, tex_output = self._generate_initial_code_new(image_paths)
 
             # # 4. 阶段三：TEX 代码语法检查 (Sync Call)
             # tex_inspector_output = self._inspect_tex_code(tex_output)
@@ -87,8 +94,13 @@ class LatexReverseEngineeringService:
             #     self._async_inspect_tex_code(tex_output),
             #     self._async_inspect_cls_code(cls_output)
             # )
+            # 暂时禁用语法检查
+            #tex_inspector_output, cls_inspector_output = await self._async_inspect_combined_code(tex_output, cls_output)
 
-            tex_inspector_output, cls_inspector_output = await self._async_inspect_combined_code(tex_output, cls_output)
+            print("暂时禁用语法检查")
+            tex_inspector_output = tex_output
+            cls_inspector_output = cls_output
+
 
             # 5. 阶段四：编译与修复循环 (Async Loop)
             # 包含：编译错误修复 + 视觉差异修正
@@ -526,3 +538,128 @@ class LatexReverseEngineeringService:
         # 使用run_in_executor将同步方法转换为异步执行
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, sync_inspect)
+
+    def _generate_initial_code_new(self, image_paths: List[str]):
+        """阶段一&二：使用图像识别器分析视觉样式并生成初始代码 (同步调用)"""
+        self.console.rule("[bold cyan]阶段一&二：图像识别与代码生成[/bold cyan]")
+        
+        # 准备输入 - 使用图像识别器同时生成 CLS 和 TEX
+        img_recognizer_input = ImgRecognizerInput(
+            instruction_text=(
+                "请分析这些论文截图的全局布局、页眉页脚、字体特征，并提取文本内容生成对应的 .cls 和 .tex 文件。\n\n"
+                "【样式分析】分析页面布局、分栏、页眉页脚、字体特征等。\n"
+                "【TEX 生成】从截图中提取文本内容，生成 .tex 文件，图片/表格用占位符替代。\n"
+                "【CLS 生成】根据样式特征生成 .cls 模板文件。\n\n"
+                "【禁止】在 TEX 文件中使用 \\textbf, \\Large, \\vspace 等样式命令。"
+            ),
+            images=[instructor.Image.from_path(p) for p in image_paths],
+        )
+
+        self.console.print("[yellow]🚀 正在生成初始代码...[/yellow]")
+        
+        # 调用图像识别器 Agent 并发生成 CLS 和 TEX 代码
+        recognition_result = self.img_recognizer_agent.run(img_recognizer_input)
+        
+        # 为了兼容现有工作流程，我们需要解析生成的 cls 代码并构建一个合适的 CLSGeneratorOutput 对象
+        # 由于 agent9 直接生成完整的 cls 代码，我们将使用解析出的信息填充 CLSGeneratorOutput 结构
+        
+        # 从生成的 cls 代码中提取关键信息
+        is_twocolumn = "twocolumn" in recognition_result.cls_code.lower()
+        has_geometry = "geometry" in recognition_result.cls_code.lower()
+        
+        # 构建 CLSGeneratorOutput 对象
+        # 使用解析出的信息构建尽可能准确的结构化配置
+        cls_output = CLSGeneratorOutput(
+            class_name="template",
+            base_class="article",
+            is_twocolumn=is_twocolumn,
+            geometry=GeometrySettings(
+                top_margin="25mm" if not has_geometry else "25mm",  # 默认值，实际布局在 custom_commands 中
+                bottom_margin="25mm",
+                left_margin="25mm",
+                right_margin="25mm",
+                column_sep="10mm" if is_twocolumn else None,
+            ),
+            fonts=FontSettings(
+                base_font_size="10pt",
+                main_font_family="serif",
+                math_font_package="newtxmath",
+                use_microtype=True,
+            ),
+            title=TitleSettings(
+                font_size="\\large",
+                font_weight="bold",
+                font_family="serif",
+                alignment="center",
+                space_before="0pt",
+                space_after="18pt",
+            ),
+            author=AuthorSettings(
+                name_font_size="\\normalsize",
+                name_font_weight="normal",
+                affiliation_font_size="\\small",
+                affiliation_font_style="italic",
+                alignment="center",
+                space_after="18pt",
+            ),
+            abstract=AbstractSettings(
+                font_size="\\small",
+                font_style="normal",
+                left_indent="0pt",
+                right_indent="0pt",
+                heading_text="Abstract",
+                heading_font_weight="bold",
+                space_before="12pt",
+                space_after="24pt",
+            ),
+            sections=SectionSettings(
+                section_font_size="\\large",
+                section_font_weight="bold",
+                section_font_family="serif",
+                section_alignment="left",
+                section_numbering_format="arabic",
+                section_space_before="12pt",
+                section_space_after="6pt",
+                subsection_font_size="\\normalsize",
+                subsection_font_weight="bold",
+                subsection_font_style="normal",
+                subsection_space_before="12pt",
+                subsection_space_after="6pt",
+            ),
+            header_footer=HeaderFooterSettings(
+                first_page_header_left="",
+                first_page_header_center="",
+                first_page_header_right="",
+                first_page_footer_center="\\thepage",
+                first_page_has_rule=False,
+                running_header_left="",
+                running_header_center="",
+                running_header_right="\\thepage",
+                running_footer_center="",
+                header_rule_width="0.4pt",
+                footer_rule_width="0pt",
+            ),
+            paragraph=ParagraphSettings(
+                line_spread="1.0",
+                paragraph_indent="2em",
+                paragraph_skip="0pt",
+                text_justification="justified",
+            ),
+            caption=CaptionSettings(
+                font_size="\\small",
+                label_font_weight="bold",
+                label_separator=":",
+                figure_position="below",
+                table_position="above",
+            ),
+            additional_packages=[],
+            custom_commands=recognition_result.cls_code,  # 将 agent9 生成的完整 cls 代码放入 custom_commands
+        )
+        
+        # 构造 TEX 输出
+        tex_output = SemanticExtractorOutput(
+            tex_code=recognition_result.tex_code
+        )
+        
+        self.console.print("[green]✅ 初始代码生成完成！[/green]")
+        return cls_output, tex_output

@@ -6,9 +6,11 @@ from agents import create_style_analyzer_agent, create_cls_generator_agent, crea
 from agents.cls_inspector import create_cls_inspector_agent
 from agents.combined_inspector import create_combined_inspector_agent
 from agents.debugger_agent import create_debugger_agent
+from agents.img_recognizer import create_img_recognizer_agent
 from agents.tex_inspector import create_tex_inspector_agent
 from agents.visual_auditor import create_visual_auditor_agent
-from llm_client import visual_client, MONICA_MODEL, async_client, MODEL, visual_async_client, client
+from llm_client import visual_client, MONICA_MODEL, async_client, MODEL, visual_async_client, client, gemini_client, \
+    GEMINI_MODEL
 from services.latex_workflow import LatexReverseEngineeringService
 
 
@@ -43,6 +45,8 @@ async def async_service(pic_paths: List[str]):
     # Combined Inspector Agent: 使用同步 Text Client (client)
     agent_combined_inspector = create_combined_inspector_agent(client, MODEL)
 
+    agent_img_recognizer = create_img_recognizer_agent(gemini_client, GEMINI_MODEL)
+
 
 
     # 3. 实例化服务
@@ -55,6 +59,7 @@ async def async_service(pic_paths: List[str]):
         tex_inspector_agent=agent_tex_inspector,
         cls_inspector_agent=agent_cls_inspector,
         combined_inspector_agent=agent_combined_inspector,
+        img_recognizer_agent=agent_img_recognizer,
         max_retries=1,  # 多迭代几次
     )
 

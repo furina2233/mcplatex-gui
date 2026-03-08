@@ -128,6 +128,27 @@ visual_async_client = instructor.from_openai(
     mode=instructor.Mode.JSON,
 )
 
+# --- Gemini配置 ---
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-pro-image-preview")
+
+if not GEMINI_API_KEY or not GEMINI_BASE_URL:
+    raise ValueError("Gemini 环境变量未配置，请检查 .env 文件")
+
+gemini_client = httpx.Client(timeout=TIMEOUT_CONFIG)
+gemini_client.event_hooks["request"] = [log_request]
+gemini_client.event_hooks["response"] = [log_response]
+
+gemini_client = instructor.from_openai(
+    openai.OpenAI(
+        api_key=GEMINI_API_KEY,
+        base_url=GEMINI_BASE_URL,
+        timeout=TIMEOUT_CONFIG,
+    ),
+    mode=instructor.Mode.JSON,
+)
+
 __all__ = [
     "client",
     "async_client",
@@ -135,4 +156,6 @@ __all__ = [
     "visual_client",
     "visual_async_client",
     "MONICA_MODEL",
+    "GEMINI_MODEL",
+    "gemini_client"
 ]

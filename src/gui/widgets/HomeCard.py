@@ -81,6 +81,7 @@ class HomeCard(SettingCard):
             self._transfer_finished = True
         else:
             show_message(self, "转换失败", MessageType.ERROR)
+            print(error_msg)
 
     def _on_show_pdf_button_clicked(self):
         pdf_path = "latex_output/main.pdf"
