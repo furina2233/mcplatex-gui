@@ -28,7 +28,7 @@ class PreviewPage(QWidget):
 
         self.configLabel = BodyLabel("查看文件", self)
         self.comboBox = ComboBox(self)
-        self.comboBox.addItems(['latex_output/main.tex','latex_output/template.cls','latex_output/main.log','llm_request.log'])
+        self.comboBox.addItems(['../result/main.tex','../result/template.cls','../result/main.log','../src/llm_request.log'])
         self.comboBox.setCurrentIndex(0)
         self.comboBox.setMinimumWidth(200)
         self.comboBox.currentIndexChanged.connect(self._refresh_table_data)

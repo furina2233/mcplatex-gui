@@ -86,7 +86,7 @@ class ValuesPage(QWidget):
     def _refresh_table_data(self):
         """ 动态读取选中的文件并刷新表格内容 """
         file_name = self.comboBox.currentText()
-        file_path = os.path.join(os.getcwd(), file_name)
+        file_path = os.path.join(os.getcwd().split("\\src")[0], file_name)
         datas = _get_values_from_file(file_path)
 
         self.tableView.clearContents()
