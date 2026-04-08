@@ -18,6 +18,8 @@ dependencies = [
     "instructor>=1.13.0",
     "ipython>=9.8.0",
     "pyyaml>=6.0.3",
+    "pillow>=11.2.1",
+    "pymupdf>=1.26.0",
 ]
 
 [[tool.uv.index]]

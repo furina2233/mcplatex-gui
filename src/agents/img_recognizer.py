@@ -5,7 +5,7 @@ from atomic_agents import BaseIOSchema, AtomicAgent, AgentConfig
 from atomic_agents.context import ChatHistory
 from pydantic import Field
 
-from agent_setup import combined_inspector_config
+from agent_setup import img_recognizer_config
 
 
 class ImgRecognizerOutput(BaseIOSchema):
@@ -53,7 +53,7 @@ def create_img_recognizer_agent(
                 "max_retries": 3,
                 "temperature": 0.1,  # 降低随机性，有助于格式稳定
             },
-            system_prompt_generator=combined_inspector_config.system_prompt_generator,
+            system_prompt_generator=img_recognizer_config.system_prompt_generator,
             history=history,
         )
     )

@@ -145,6 +145,21 @@ gemini_client = instructor.from_openai(
         api_key=GEMINI_API_KEY,
         base_url=GEMINI_BASE_URL,
         timeout=TIMEOUT_CONFIG,
+        http_client=gemini_client,
+    ),
+    mode=instructor.Mode.JSON,
+)
+
+gemini_async_http_client = httpx.AsyncClient(timeout=TIMEOUT_CONFIG)
+gemini_async_http_client.event_hooks["request"] = [async_log_request]
+gemini_async_http_client.event_hooks["response"] = [async_log_response]
+
+gemini_async_client = instructor.from_openai(
+    openai.AsyncOpenAI(
+        api_key=GEMINI_API_KEY,
+        base_url=GEMINI_BASE_URL,
+        timeout=TIMEOUT_CONFIG,
+        http_client=gemini_async_http_client,
     ),
     mode=instructor.Mode.JSON,
 )
@@ -157,5 +172,6 @@ __all__ = [
     "visual_async_client",
     "MONICA_MODEL",
     "GEMINI_MODEL",
-    "gemini_client"
+    "gemini_client",
+    "gemini_async_client",
 ]

@@ -2,6 +2,8 @@ import os
 import asyncio
 import traceback
 import base64
+import re
+import copy
 from typing import List
 
 import instructor
@@ -23,6 +25,7 @@ from agents.semantic_extractor import SemanticExtractorInput, SemanticExtractorO
 from agents.debugger_agent import DebuggerInput, DebuggerOutput
 from agents.visual_auditor import VisualAuditorInput, VisualAuditorOutput
 from agents.tex_inspector import TexInspectorInput, TexInspectorOutput
+from schemas.style_schema import FontFeature, PageLayout, SpacingFeature
 
 
 class LatexReverseEngineeringService:
@@ -37,7 +40,7 @@ class LatexReverseEngineeringService:
         cls_inspector_agent,
         combined_inspector_agent,
         img_recognizer_agent,
-        max_retries: int = 10,
+        max_retries: int = 5,
     ):
         """
         初始化服务，注入所有需要的 Agent。
@@ -71,13 +74,9 @@ class LatexReverseEngineeringService:
 
             # 2. 阶段一：样式分析 (Sync Call)
             style_report = self._analyze_style(image_paths)
-            #
-            # # 3. 阶段二：生成初稿 (Async Concurrent)
-            # cls_output, tex_output = await self._generate_initial_code(
-            #     image_paths, style_report
-            # )
-
-            cls_output, tex_output = self._generate_initial_code_new(image_paths)
+            cls_output, tex_output = await self._generate_initial_code(
+                image_paths, style_report
+            )
 
             # # 4. 阶段三：TEX 代码语法检查 (Sync Call)
             # tex_inspector_output = self._inspect_tex_code(tex_output)
@@ -126,8 +125,13 @@ class LatexReverseEngineeringService:
         self.console.rule("[bold cyan]阶段一：样式分析[/bold cyan]")
 
         style_input = StyleAnalysisInput(
-            instruction_text="这是论文的某页截图。请分析其全局布局、页眉页脚差异以及字体特征。",
-            images=[instructor.Image.from_path(image_paths[0])],
+            instruction_text=(
+                "Analyze the provided paper screenshots and estimate structured layout parameters. "
+                "You must identify margins, column count, column gap, header height, header-to-text spacing, "
+                "footer spacing, paragraph indent, body line spacing, paragraph spacing, section and subsection "
+                "spacing, title/author/abstract spacing, caption spacing, and representative font/alignment features."
+            ),
+            images=[instructor.Image.from_path(path) for path in image_paths],
         )
 
         self.console.print("[cyan]Agent 1 正在分析视觉样式...[/cyan]")
@@ -153,6 +157,7 @@ class LatexReverseEngineeringService:
                 "请从这些论文截图中提取文本内容，生成 .tex 文件。\n\n"
                 "【图片/表格处理】完全忽略内部内容，只提取 caption，用占位符替代。\n"
                 "【禁止】使用 \\textbf, \\Large, \\vspace 等样式命令。"
+                "Only transcribe content that is clearly visible in the images. If the last sentence is cut off, stop there and do not complete it. Do not invent figures, tables, captions, references, a References section, a thebibliography environment, or a bibliography command unless they are clearly visible.\n"
             ),
             images=[instructor.Image.from_path(p) for p in image_paths],
         )
@@ -166,6 +171,7 @@ class LatexReverseEngineeringService:
         )
 
         self.console.print("[green]✅ 初始代码生成完成！[/green]")
+        cls_output = self._normalize_cls_output(cls_output)
         return cls_output, tex_output
 
     async def _compile_and_refine(
@@ -193,12 +199,15 @@ class LatexReverseEngineeringService:
             )
 
             # 1. 准备代码
+            current_cls = self._normalize_cls_output(current_cls)
             cls_code = build_cls_code(current_cls)
-            tex_code = current_tex.tex_code
+            tex_code = self._normalize_tex_documentclass(current_tex.tex_code)
+            current_tex = SemanticExtractorOutput(tex_code=tex_code)
+            self._save_iteration_snapshot(attempt, cls_code, tex_code)
 
             # 2. 调用 MCP 工具进行编译 (Async)
             try:
-                success, msg, images = await build_and_preview(cls_code, tex_code)
+                pdf_generated, msg, images = await build_and_preview(cls_code, tex_code)
             except LatexEnvironmentError as env_err:
                 self.console.print(
                     f"\n[bold red]⛔ 严重环境错误，程序终止！[/bold red]"
@@ -209,7 +218,7 @@ class LatexReverseEngineeringService:
             # =========================================================
             # 分支 A: 编译失败 -> 调用 Debugger Agent
             # =========================================================
-            if not success:
+            if not pdf_generated:
                 self.console.print(f"[bold red]❌ 编译失败 (代码错误)！[/bold red]")
                 log_preview = msg[-1000:] if len(msg) > 1000 else msg
                 self.console.print(f"[dim]Log Tail: ...{log_preview}[/dim]")
@@ -225,62 +234,53 @@ class LatexReverseEngineeringService:
                 # 修复后直接进入下一次循环进行验证
                 continue
 
-            # =========================================================
-            # 分支 B: 编译成功 -> 调用 Visual Auditor Agent
-            # =========================================================
             self.console.print(
-                "[bold green]✅ 编译成功！进入视觉审计环节...[/bold green]"
+                "[bold green]✅ 本轮编译已生成 PDF，进入渲染对比审计阶段...[/bold green]"
             )
-            final_images = images  # 暂存当前成功的图片
+            final_images = images
 
-            # 确保有图片生成
             if not images:
                 self.console.print(
-                    "[yellow]⚠️ 编译成功但未生成预览图，跳过视觉审计。[/yellow]"
+                    "[yellow]⚠️ 本轮编译已生成 PDF，但未生成预览图，跳过渲染对比审计。[/yellow]"
                 )
                 is_finished = True
                 break
 
-            # 执行视觉审计 (Sync Call)
-            generated_img_data = images[0]["data"]
-            # 构造 Data URI
-            generated_img_uri = f"data:image/png;base64,{generated_img_data}"
-
             try:
-                audit_result = self._perform_visual_audit(
-                    original_path=image_paths[0],  # 对比第一张图
-                    generated_uri=generated_img_uri,
+                audit_result = self._perform_render_comparison_audit(
+                    original_path=image_paths[0],
+                    rendered_image=images[0],
+                    cls_output=current_cls,
                 )
 
                 if audit_result.passed:
                     self.console.print(
-                        "[bold green]🏆 视觉审计通过！复刻完成。[/bold green]"
+                        "[bold green]🏁 渲染对比审计通过，复刻完成。[/bold green]"
                     )
                     is_finished = True
                     break
                 else:
                     self.console.print(
-                        "[bold yellow]⚠️ 视觉审计未通过，需要精修样式。[/bold yellow]"
+                        "[bold yellow]⚠️ 渲染对比审计未通过，需要继续调整版式。[/bold yellow]"
                     )
                     self.console.print(f"[dim]反馈意见:\n{audit_result.feedback}[/dim]")
 
-                    # 针对样式问题，调用 CLS Agent 进行 Revision
                     self.console.print(
-                        "🔧 正在请求 [bold]Agent 2 (CLS)[/bold] 根据视觉反馈调整参数..."
+                        "🔧 正在请求 [bold]Agent 2 (CLS)[/bold] 根据渲染对比反馈调整参数..."
                     )
                     new_cls_input = CLSGeneratorInput(
                         mode="revision",
                         style_report=style_report,
-                        revision_feedback=f"Visual Audit Failed. Feedback: {audit_result.feedback}",
+                        revision_feedback=f"Render Comparison Audit Failed. Feedback: {audit_result.feedback}",
                         previous_config=current_cls,
                     )
-                    # 更新 CLS 配置，进入下一次循环重新编译
-                    current_cls = await self.cls_agent.run_async(new_cls_input)
+                    current_cls = self._normalize_cls_output(
+                        await self.cls_agent.run_async(new_cls_input)
+                    )
                     continue
 
             except Exception as e:
-                self.console.print(f"[red]视觉审计过程中发生错误: {e}[/red]")
-                # 如果审计出错，保守起见我们认为当前版本可用，但不完美
+                self.console.print(f"[red]渲染对比审计阶段发生错误: {e}[/red]")
                 is_finished = True
                 break
 
@@ -289,21 +289,173 @@ class LatexReverseEngineeringService:
 
         return current_cls, current_tex, final_images, is_finished
 
-    def _perform_visual_audit(
-        self, original_path: str, generated_uri: str
+    def _perform_render_comparison_audit(
+        self,
+        original_path: str,
+        rendered_image: dict[str, str],
+        cls_output: CLSGeneratorOutput,
     ) -> VisualAuditorOutput:
-        """辅助方法：执行视觉审计 (同步)"""
-
-        # 构造输入：图1 原版，图2 生成版
+        """Compare the rendered PDF page against the original screenshot and request field-level fixes."""
+        comparison_summary = self._build_page_comparison_summary(
+            original_path,
+            rendered_image["path"],
+        )
         audit_input = VisualAuditorInput(
             images=[
                 instructor.Image.from_path(original_path),
-                instructor.Image.from_url(generated_uri),
-            ]
+                instructor.Image.from_path(rendered_image["path"]),
+            ],
+            instruction_text=(
+                "Compare the original paper screenshot with the rendered PDF page. "
+                "Focus only on layout, margins, header/footer placement, spacing, fonts, title/abstract/section block geometry, "
+                "and whether the rendered page contains hallucinated trailing content not present in the original image. "
+                "Ignore OCR wording mistakes. Return only field-level feedback that maps to the CLS generator schema.\n\n"
+                f"Local comparison summary:\n{comparison_summary}\n\n"
+                f"Current CLS configuration:\n{cls_output.model_dump_json(indent=2)}"
+            ),
         )
-
-        # 调用 Agent 4
         return self.visual_auditor_agent.run(audit_input)
+
+    def _build_page_comparison_summary(self, original_path: str, rendered_path: str) -> str:
+        """Build a compact local comparison summary to stabilize the multimodal audit."""
+        original_metrics = self._estimate_page_metrics(original_path)
+        rendered_metrics = self._estimate_page_metrics(rendered_path)
+
+        lines = [
+            "Use these metrics as hints only; the images remain the source of truth.",
+            self._format_metrics("Original", original_metrics),
+            self._format_metrics("Rendered", rendered_metrics),
+        ]
+
+        if original_metrics.get("content_bottom_ratio") and rendered_metrics.get("content_bottom_ratio"):
+            delta = rendered_metrics["content_bottom_ratio"] - original_metrics["content_bottom_ratio"]
+            if isinstance(delta, float) and delta > 0.06:
+                lines.append(
+                    "Heuristic warning: rendered content extends noticeably lower than the original page and may contain extra trailing material."
+                )
+
+        return "\n".join(lines)
+
+    def _estimate_page_metrics(self, image_path: str) -> dict[str, float | int | str | None]:
+        """Estimate simple page layout metrics from an image using a white-background heuristic."""
+        try:
+            from PIL import Image
+        except ImportError:
+            return {"path": image_path, "error": "Pillow unavailable"}
+
+        with Image.open(image_path) as img:
+            gray = img.convert("L")
+            width, height = gray.size
+            mask = gray.point(lambda p: 255 if p < 245 else 0, mode="L")
+            bbox = mask.getbbox()
+
+            metrics: dict[str, float | int | str | None] = {
+                "path": image_path,
+                "width": width,
+                "height": height,
+                "aspect_ratio": round(width / height, 4) if height else None,
+                "content_bbox": None,
+                "top_margin_ratio": None,
+                "bottom_margin_ratio": None,
+                "left_margin_ratio": None,
+                "right_margin_ratio": None,
+                "content_bottom_ratio": None,
+                "column_gap_ratio": None,
+            }
+
+            if not bbox:
+                return metrics
+
+            left, top, right, bottom = bbox
+            metrics["content_bbox"] = f"({left},{top})-({right},{bottom})"
+            metrics["top_margin_ratio"] = round(top / height, 4) if height else None
+            metrics["bottom_margin_ratio"] = round((height - bottom) / height, 4) if height else None
+            metrics["left_margin_ratio"] = round(left / width, 4) if width else None
+            metrics["right_margin_ratio"] = round((width - right) / width, 4) if width else None
+            metrics["content_bottom_ratio"] = round(bottom / height, 4) if height else None
+            metrics["column_gap_ratio"] = self._detect_column_gap(mask, width, height)
+            return metrics
+
+    def _detect_column_gap(self, mask_image, width: int, height: int) -> float | None:
+        """Estimate a central column gap ratio using the rendered binary mask."""
+        if not width or not height:
+            return None
+
+        band_top = int(height * 0.25)
+        band_bottom = int(height * 0.8)
+        band_height = max(1, band_bottom - band_top)
+        center_start = int(width * 0.2)
+        center_end = int(width * 0.8)
+        pixels = mask_image.load()
+        low_ink_threshold = max(3, int(band_height * 0.01))
+
+        longest_run = 0
+        current_run = 0
+        for x in range(center_start, center_end):
+            ink_pixels = 0
+            for y in range(band_top, band_bottom):
+                if pixels[x, y] != 0:
+                    ink_pixels += 1
+            if ink_pixels <= low_ink_threshold:
+                current_run += 1
+                longest_run = max(longest_run, current_run)
+            else:
+                current_run = 0
+
+        if longest_run < max(8, int(width * 0.02)):
+            return None
+        return round(longest_run / width, 4)
+
+    def _format_metrics(self, label: str, metrics: dict[str, float | int | str | None]) -> str:
+        """Format metrics for the audit prompt."""
+        parts = [f"{label} metrics:"]
+        for key, value in metrics.items():
+            parts.append(f"- {key}: {value}")
+        return "\n".join(parts)
+
+    def _normalize_tex_documentclass(self, tex_code: str) -> str:
+        """Force generated TEX to reference template.cls."""
+        pattern = r"\\documentclass(\[[^\]]*\])?\{[^}]+\}"
+
+        if re.search(pattern, tex_code):
+            tex_code = re.sub(pattern, r"\\documentclass\1{template}", tex_code, count=1)
+        else:
+            tex_code = "\\documentclass{template}\n" + tex_code.lstrip()
+
+        return self._sanitize_generated_tex(tex_code)
+
+    def _sanitize_generated_tex(self, tex_code: str) -> str:
+        """Remove high-confidence hallucinated tail blocks from generated TEX."""
+        patterns = [
+            r"(?is)%\s*Placeholders for figures and tables.*$",
+            r"(?is)\\begin\{thebibliography\}.*?\\end\{thebibliography\}",
+            r"(?im)^\s*\\bibliographystyle\{.*\}\s*$",
+            r"(?im)^\s*\\bibliography\{.*\}\s*$",
+            r"(?is)\\section\*?\{References\}.*$",
+            r"(?is)\\section\*?\{参考文献\}.*$",
+        ]
+
+        cleaned = tex_code
+        for pattern in patterns:
+            cleaned = re.sub(pattern, "", cleaned)
+
+        return cleaned.strip() + "\n"
+
+    def _normalize_cls_output(self, cls_output: CLSGeneratorOutput) -> CLSGeneratorOutput:
+        """Normalize escaped LaTeX sequences and keep the class name stable."""
+
+        def normalize_value(value):
+            if isinstance(value, str):
+                return value.replace("\\\\", "\\")
+            if isinstance(value, list):
+                return [normalize_value(item) for item in value]
+            if isinstance(value, dict):
+                return {key: normalize_value(item) for key, item in value.items()}
+            return value
+
+        normalized = normalize_value(copy.deepcopy(cls_output.model_dump()))
+        normalized["class_name"] = "template"
+        return CLSGeneratorOutput.model_validate(normalized)
 
     async def _handle_compilation_error(
         self,
@@ -347,7 +499,9 @@ class LatexReverseEngineeringService:
                 revision_feedback=f"Error: {debug_result.error_summary}\nFix: {debug_result.fix_instruction}",
                 previous_config=cls_output,
             )
-            new_cls = await self.cls_agent.run_async(new_cls_input)
+            new_cls = self._normalize_cls_output(
+                await self.cls_agent.run_async(new_cls_input)
+            )
 
         elif debug_result.target_agent == "semantic_extractor":
             self.console.print("🔧 正在请求 [bold]Agent 3 (TEX)[/bold] 修复正文...")
@@ -358,8 +512,11 @@ class LatexReverseEngineeringService:
                 images=[instructor.Image.from_path(p) for p in image_paths],
             )
             new_tex = await self.tex_agent.run_async(new_tex_input)
+            new_tex = SemanticExtractorOutput(
+                tex_code=self._normalize_tex_documentclass(new_tex.tex_code)
+            )
 
-        return new_cls, new_tex
+        return self._normalize_cls_output(new_cls), new_tex
 
     # ==================================================
     # 文件操作辅助方法
@@ -375,12 +532,28 @@ class LatexReverseEngineeringService:
             raise FileNotFoundError("图片文件不存在")
         return [img2_path]
 
+    def _save_iteration_snapshot(self, attempt: int, cls_code: str, tex_code: str):
+        """Persist each iteration's generated sources for inspection."""
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        snapshot_dir = os.path.join(project_root, "temp", "iterations")
+        os.makedirs(snapshot_dir, exist_ok=True)
+
+        cls_path = os.path.join(snapshot_dir, f"template_attempt_{attempt}.cls")
+        tex_path = os.path.join(snapshot_dir, f"content_attempt_{attempt}.tex")
+
+        with open(cls_path, "w", encoding="utf-8") as f:
+            f.write(cls_code)
+
+        with open(tex_path, "w", encoding="utf-8") as f:
+            f.write(tex_code)
+
     def _save_final_results(
         self, output_dir: str, cls_output, tex_output, images, is_success
     ):
         """保存所有输出文件"""
         self.console.rule("[bold cyan]保存最终结果[/bold cyan]")
         os.makedirs(output_dir, exist_ok=True)
+        cls_output = self._normalize_cls_output(cls_output)
 
         # 保存 CLS
         cls_code = build_cls_code(cls_output)
@@ -658,7 +831,7 @@ class LatexReverseEngineeringService:
         
         # 构造 TEX 输出
         tex_output = SemanticExtractorOutput(
-            tex_code=recognition_result.tex_code
+            tex_code=self._normalize_tex_documentclass(recognition_result.tex_code)
         )
         
         self.console.print("[green]✅ 初始代码生成完成！[/green]")

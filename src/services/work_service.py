@@ -9,8 +9,7 @@ from agents.debugger_agent import create_debugger_agent
 from agents.img_recognizer import create_img_recognizer_agent
 from agents.tex_inspector import create_tex_inspector_agent
 from agents.visual_auditor import create_visual_auditor_agent
-from llm_client import visual_client, MONICA_MODEL, async_client, MODEL, visual_async_client, client, gemini_client, \
-    GEMINI_MODEL
+from llm_client import async_client, MODEL, client, gemini_client, gemini_async_client, GEMINI_MODEL
 from services.latex_workflow import LatexReverseEngineeringService
 
 
@@ -22,19 +21,19 @@ async def async_service(pic_paths: List[str]):
 
     # 2. 创建 Agents (依赖注入准备)
     # Style Agent: 使用同步 Vision Client (visual_client)
-    agent_style = create_style_analyzer_agent(visual_client, MONICA_MODEL)
+    agent_style = create_style_analyzer_agent(gemini_client, GEMINI_MODEL)
 
     # CLS Agent: 使用异步 Text Client (async_client)
     agent_cls = create_cls_generator_agent(async_client, MODEL)
 
     # TEX Agent: 使用异步 Vision Client (visual_async_client)
-    agent_tex = create_semantic_extractor_agent(visual_async_client, MONICA_MODEL)
+    agent_tex = create_semantic_extractor_agent(gemini_async_client, GEMINI_MODEL)
 
     # Debugger Agent: 使用同步 Text Client (client)
     agent_debug = create_debugger_agent(client, MODEL)
 
     # Visual Auditor Agent: 使用同步 Vision Client (visual_client)
-    agent_visual = create_visual_auditor_agent(visual_client, MONICA_MODEL)
+    agent_visual = create_visual_auditor_agent(gemini_client, GEMINI_MODEL)
 
     # TEX Inspector Agent: 使用同步 Text Client (client)
     agent_tex_inspector = create_tex_inspector_agent(client, MODEL)
@@ -60,7 +59,7 @@ async def async_service(pic_paths: List[str]):
         cls_inspector_agent=agent_cls_inspector,
         combined_inspector_agent=agent_combined_inspector,
         img_recognizer_agent=agent_img_recognizer,
-        max_retries=1,  # 多迭代几次
+        max_retries=5,
     )
 
     # 4. 运行服务

@@ -1,88 +1,159 @@
 import asyncio
+import base64
 import os
+import shutil
 import subprocess
 from pathlib import Path
-from typing import Tuple, List, Dict
+from typing import Dict, List, Tuple
 
 from launcher_file import set_launcher_file_value
 
 
 class LatexEnvironmentError(Exception):
-    """当 LaTeX 环境或系统级故障时抛出"""
-    pass
+    """Raised when the local LaTeX toolchain or preview pipeline is unavailable."""
+
 
 latex_engine_path = "../TinyTeX/bin/windows/xelatex.exe"
 
-def detect_latex_engine()->bool:
-    result = subprocess.run([latex_engine_path, "--version"], capture_output=True, text=True, timeout=5, encoding='utf-8')
-    if result.returncode == 0:
-        return True
-    else:
-        return False
+
+def _has_latex_error(output: str) -> bool:
+    error_markers = [
+        "LaTeX Error:",
+        "! Emergency stop.",
+        "! Undefined control sequence.",
+        "! Missing ",
+        "! Package ",
+        "! File ended while scanning",
+        "! Extra ",
+    ]
+    return any(marker in output for marker in error_markers)
+
+
+def detect_latex_engine() -> bool:
+    result = subprocess.run(
+        [latex_engine_path, "--version"],
+        capture_output=True,
+        text=True,
+        timeout=5,
+        encoding="utf-8",
+    )
+    return result.returncode == 0
+
+
+def _render_pdf_preview_images(pdf_path: Path, output_dir: Path) -> List[Dict[str, str]]:
+    """Render PDF pages to PNG previews for downstream comparison and saving."""
+    try:
+        import fitz  # PyMuPDF
+    except ImportError as exc:
+        raise LatexEnvironmentError(
+            "PyMuPDF is required to render PDF previews. Run `uv sync` to install project dependencies."
+        ) from exc
+
+    preview_dir = output_dir / "preview"
+    preview_dir.mkdir(exist_ok=True)
+    for stale_image in preview_dir.glob("page_*.png"):
+        stale_image.unlink()
+
+    rendered_images: List[Dict[str, str]] = []
+    with fitz.open(pdf_path) as doc:
+        for page_index, page in enumerate(doc):
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+            image_name = f"page_{page_index + 1}.png"
+            image_path = preview_dir / image_name
+            pix.save(image_path)
+
+            rendered_images.append(
+                {
+                    "name": image_name,
+                    "path": str(image_path),
+                    "data": base64.b64encode(image_path.read_bytes()).decode("ascii"),
+                    "page": str(page_index + 1),
+                    "width": str(pix.width),
+                    "height": str(pix.height),
+                }
+            )
+
+    return rendered_images
+
+
+def _delete_root_pdfs(output_dir: Path) -> None:
+    """Remove stale PDFs in the result root before a new compile starts."""
+    for stale_pdf in output_dir.glob("*.pdf"):
+        stale_pdf.unlink()
+
+
+def _copy_pdf_to_output(pdf_path: Path, output_dir: Path) -> Path:
+    """Keep the latest compiled PDF under result/output/main.pdf."""
+    archive_dir = output_dir / "output"
+    archive_dir.mkdir(exist_ok=True)
+    archived_pdf_path = archive_dir / pdf_path.name
+    shutil.copy2(pdf_path, archived_pdf_path)
+    return archived_pdf_path
+
 
 def _sync_build_and_preview(
-        cls_content: str, tex_content: str, timeout: int = 60
+    cls_content: str, tex_content: str, timeout: int = 60
 ) -> Tuple[bool, str, List[Dict[str, str]]]:
-    """
-    使用本地 LaTeX 环境编译项目（同步版本）。
-    """
+    """Compile the temporary LaTeX project and continue if this run produced a PDF."""
     if not detect_latex_engine():
         set_launcher_file_value("latex_installed", "false")
-        raise LatexEnvironmentError("未找到latex环境，请重新启动")
+        raise LatexEnvironmentError("LaTeX engine not found. Please restart after installation.")
 
-    # 1. 准备本地工作目录
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 获取项目根目录
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     local_output_path = Path(project_root) / "result"
     local_output_path.mkdir(exist_ok=True)
 
-    # 将内容写入临时文件
     main_tex_path = local_output_path / "main.tex"
     template_cls_path = local_output_path / "template.cls"
+    main_pdf_path = local_output_path / "main.pdf"
 
-    with open(template_cls_path, "w", encoding="utf-8") as f:
-        f.write(cls_content)
+    template_cls_path.write_text(cls_content, encoding="utf-8")
+    main_tex_path.write_text(tex_content, encoding="utf-8")
 
-    with open(main_tex_path, "w", encoding="utf-8") as f:
-        f.write(tex_content)
-
-    # 尝试编译
     try:
-        # 先删除main.pdf文件
-        if (local_output_path / "main.pdf").exists():
-            (local_output_path / "main.pdf").unlink()
+        _delete_root_pdfs(local_output_path)
 
+        result = subprocess.run(
+            [
+                latex_engine_path,
+                "-interaction=nonstopmode",
+                f"-output-directory={local_output_path.as_posix()}",
+                str(main_tex_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            encoding="utf-8",
+        )
 
-        result = subprocess.run([
-            latex_engine_path,
-            "-interaction=nonstopmode",
-            "-output-directory=" + str(local_output_path.as_posix()),
-            str(main_tex_path)
-        ], capture_output=True, text=True, timeout=timeout, encoding='utf-8')
+        compiler_output = f"{result.stderr}\n{result.stdout}"
+        pdf_generated = main_pdf_path.exists()
+        if pdf_generated:
+            archived_pdf_path = _copy_pdf_to_output(main_pdf_path, local_output_path)
+            status_message = "PDF generated by this compile. Proceeding to visual audit."
+            if result.returncode != 0 or _has_latex_error(compiler_output):
+                status_message = (
+                    "LaTeX reported errors, but this compile still generated a PDF. "
+                    "Proceeding to visual audit."
+                )
+            status_message = f"{status_message} Copied latest PDF to {archived_pdf_path}."
 
-        if result.returncode == 0:
-            # 编译成功
-            return True, "编译成功", []
-        else:
-            # 编译失败
-            error_msg = f"LaTeX 编译错误: {result.stderr}\n{result.stdout}"
-            return False, error_msg, []
+            combined_output = compiler_output.strip()
+            if combined_output:
+                combined_output = f"{status_message}\n\n{combined_output}"
+            else:
+                combined_output = status_message
 
-        # 如果有pdf文件生成，则返回成功
-        # if (local_output_path / "main.pdf").exists():
-        #     return True, "编译成功", []
-        # else:
-        #     # 编译失败
-        #     error_msg = f"LaTeX 编译错误: {result.stderr}\n{result.stdout}"
-        #     return False, error_msg, []
+            return True, combined_output, _render_pdf_preview_images(main_pdf_path, local_output_path)
 
-    except subprocess.TimeoutExpired:
-        raise LatexEnvironmentError(f"LaTeX 编译超时 ({timeout}秒)")
-    except Exception as e:
-        raise LatexEnvironmentError(f"LaTeX 编译过程中发生错误: {str(e)}")
+        return False, f"LaTeX compile failed without generating a PDF.\n\n{compiler_output}", []
+    except subprocess.TimeoutExpired as exc:
+        raise LatexEnvironmentError(f"LaTeX compilation timed out ({timeout}s).") from exc
+    except Exception as exc:
+        raise LatexEnvironmentError(f"LaTeX compilation failed: {exc}") from exc
+
 
 async def build_and_preview(
-        cls_content: str, tex_content: str, timeout: int = 60
+    cls_content: str, tex_content: str, timeout: int = 60
 ) -> Tuple[bool, str, List[Dict[str, str]]]:
-    return await asyncio.to_thread(
-        _sync_build_and_preview, cls_content, tex_content, timeout
-    )
+    return await asyncio.to_thread(_sync_build_and_preview, cls_content, tex_content, timeout)
