@@ -1,10 +1,12 @@
 import os
 from typing import Tuple, List
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHeaderView, QTableWidgetItem, QAbstractItemView, \
+from PySide6.QtWidgets import QWidget, QHeaderView, QTableWidgetItem, QAbstractItemView, \
     QHBoxLayout
 from dotenv import dotenv_values
 from qfluentwidgets import setFont, TableWidget, BodyLabel, ComboBox
+
+from src.gui.utils.ScrollPageUtil import create_scrollable_page
 
 
 def _get_values_from_file(path: str) -> List[Tuple[str, str]]:
@@ -30,15 +32,15 @@ class ValuesPage(QWidget):
         super().__init__(parent=parent)
         self.setObjectName("valuesPage")
 
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(30, 30, 30, 30)
+        self.scrollArea, self.scrollWidget, self.layout = create_scrollable_page(self)
 
         self._add_file_selection_box()
         self._add_values_table()
+        self.layout.addStretch(1)
 
     def _add_values_table(self):
         """ 封装的表格创建方法 """
-        self.tableView = TableWidget(self)
+        self.tableView = TableWidget(self.scrollWidget)
 
         # 样式配置
         self.tableView.verticalHeader().hide()
@@ -67,8 +69,8 @@ class ValuesPage(QWidget):
 
         self.toolBarLayout.addStretch(1)
 
-        self.configLabel = BodyLabel("配置文件", self)
-        self.comboBox = ComboBox(self)
+        self.configLabel = BodyLabel("配置文件", self.scrollWidget)
+        self.comboBox = ComboBox(self.scrollWidget)
         self.comboBox.addItems(['.env'])
         self.comboBox.setCurrentIndex(0)
         self.comboBox.setMinimumWidth(200)

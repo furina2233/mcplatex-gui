@@ -5,17 +5,17 @@ from qfluentwidgets import FluentWindow, FluentIcon as FIF, NavigationItemPositi
 from qfluentwidgets import Theme, setTheme
 
 from src.gui.pages.AboutPage import AboutPage
+from src.gui.pages.DocumentPage import DocumentPage
 from src.gui.pages.HomePage import HomePage
-from src.gui.pages.PreviewPage import PreviewPage
 from src.gui.pages.SettingPage import SettingPage
-from src.gui.pages.ValuesPage import ValuesPage
+from src.gui.pages.TemplatePage import TemplatePage
 from src.gui.utils.ScreenSizeUtil import get_screen_size
 from src.gui.widgets.SquareNavigationWidget import SquareNavigationWidget
 
 timer = QTimer()
 
 # 防止导入被优化import删掉
-PreviewPage,ValuesPage,AboutPage,SettingPage,HomePage
+AboutPage,SettingPage,HomePage,TemplatePage,DocumentPage
 
 def _set_high_dpi_scaling():
     """
@@ -60,8 +60,8 @@ class MainWindow(FluentWindow):
         self.navigationInterface.addItemHeader("")
 
         self._add_new_widget_to_navigation(FIF.HOME, "主页", "homePage")
-        self._add_new_widget_to_navigation(FIF.CODE, "预览", "previewPage")
-        self._add_new_widget_to_navigation(FIF.TAG, "变量", "valuesPage")
+        self._add_new_widget_to_navigation(FIF.PHOTO, "模板区", "templatePage")
+        self._add_new_widget_to_navigation(FIF.DOCUMENT, "文档区", "documentPage")
         self._add_new_widget_to_navigation(FIF.INFO, "关于", "aboutPage", NavigationItemPosition.BOTTOM)
         self._add_new_widget_to_navigation(FIF.SETTING, "设置", "settingPage", NavigationItemPosition.BOTTOM)
 

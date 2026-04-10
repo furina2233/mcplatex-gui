@@ -21,6 +21,8 @@ class AgentConfig:
 # =============================================================================
 def _load_yaml_config(config_path="agent_config.yaml") -> dict:
     """读取 YAML 文件"""
+    if not os.path.isabs(config_path):
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), config_path)
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
 

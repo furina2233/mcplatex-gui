@@ -1,19 +1,19 @@
 import asyncio
 import base64
-import os
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 from launcher_file import set_launcher_file_value
+from services.workflow_support import pdf_dir, temp_dir
 
 
 class LatexEnvironmentError(Exception):
     """Raised when the local LaTeX toolchain or preview pipeline is unavailable."""
 
 
-latex_engine_path = "../TinyTeX/bin/windows/xelatex.exe"
+latex_engine_path = str(Path(__file__).resolve().parents[1] / "TinyTeX" / "bin" / "windows" / "xelatex.exe")
 
 
 def _has_latex_error(output: str) -> bool:
@@ -40,7 +40,7 @@ def detect_latex_engine() -> bool:
     return result.returncode == 0
 
 
-def _render_pdf_preview_images(pdf_path: Path, output_dir: Path) -> List[Dict[str, str]]:
+def _render_pdf_preview_images(pdf_path: Path, output_dir: Path, job_name: str) -> List[Dict[str, str]]:
     """Render PDF pages to PNG previews for downstream comparison and saving."""
     try:
         import fitz  # PyMuPDF
@@ -49,17 +49,15 @@ def _render_pdf_preview_images(pdf_path: Path, output_dir: Path) -> List[Dict[st
             "PyMuPDF is required to render PDF previews. Run `uv sync` to install project dependencies."
         ) from exc
 
-    preview_dir = output_dir / "preview"
-    preview_dir.mkdir(exist_ok=True)
-    for stale_image in preview_dir.glob("page_*.png"):
+    for stale_image in output_dir.glob(f"{job_name}_page_*.png"):
         stale_image.unlink()
 
     rendered_images: List[Dict[str, str]] = []
     with fitz.open(pdf_path) as doc:
         for page_index, page in enumerate(doc):
             pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
-            image_name = f"page_{page_index + 1}.png"
-            image_path = preview_dir / image_name
+            image_name = f"{job_name}_page_{page_index + 1}.png"
+            image_path = output_dir / image_name
             pix.save(image_path)
 
             rendered_images.append(
@@ -76,15 +74,16 @@ def _render_pdf_preview_images(pdf_path: Path, output_dir: Path) -> List[Dict[st
     return rendered_images
 
 
-def _delete_root_pdfs(output_dir: Path) -> None:
-    """Remove stale PDFs in the result root before a new compile starts."""
-    for stale_pdf in output_dir.glob("*.pdf"):
-        stale_pdf.unlink()
+def _delete_stale_job_files(output_dir: Path, job_name: str) -> None:
+    """Remove stale files for the same job before a new compile starts."""
+    for stale_file in output_dir.glob(f"{job_name}*"):
+        if stale_file.is_file():
+            stale_file.unlink()
 
 
 def _copy_pdf_to_output(pdf_path: Path, output_dir: Path) -> Path:
-    """Keep the latest compiled PDF under result/output/main.pdf."""
-    archive_dir = output_dir / "output"
+    """Keep the latest compiled PDF under work/pdf/<job_name>.pdf."""
+    archive_dir = output_dir
     archive_dir.mkdir(exist_ok=True)
     archived_pdf_path = archive_dir / pdf_path.name
     shutil.copy2(pdf_path, archived_pdf_path)
@@ -92,31 +91,34 @@ def _copy_pdf_to_output(pdf_path: Path, output_dir: Path) -> Path:
 
 
 def _sync_build_and_preview(
-    cls_content: str, tex_content: str, timeout: int = 60
-) -> Tuple[bool, str, List[Dict[str, str]]]:
+    cls_content: str, tex_content: str, job_name: str = "template", timeout: int = 60
+) -> Tuple[bool, str, List[Dict[str, str]], Dict[str, str]]:
     """Compile the temporary LaTeX project and continue if this run produced a PDF."""
     if not detect_latex_engine():
         set_launcher_file_value("latex_installed", "false")
         raise LatexEnvironmentError("LaTeX engine not found. Please restart after installation.")
 
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    local_output_path = Path(project_root) / "result"
+    local_output_path = temp_dir()
     local_output_path.mkdir(exist_ok=True)
+    work_pdf_path = pdf_dir()
 
-    main_tex_path = local_output_path / "main.tex"
-    template_cls_path = local_output_path / "template.cls"
-    main_pdf_path = local_output_path / "main.pdf"
+    main_tex_path = local_output_path / f"{job_name}.tex"
+    template_cls_path = local_output_path / f"{job_name}.cls"
+    main_pdf_path = local_output_path / f"{job_name}.pdf"
 
     template_cls_path.write_text(cls_content, encoding="utf-8")
     main_tex_path.write_text(tex_content, encoding="utf-8")
 
     try:
-        _delete_root_pdfs(local_output_path)
+        _delete_stale_job_files(local_output_path, job_name)
+        template_cls_path.write_text(cls_content, encoding="utf-8")
+        main_tex_path.write_text(tex_content, encoding="utf-8")
 
         result = subprocess.run(
             [
                 latex_engine_path,
                 "-interaction=nonstopmode",
+                f"-jobname={job_name}",
                 f"-output-directory={local_output_path.as_posix()}",
                 str(main_tex_path),
             ],
@@ -129,7 +131,7 @@ def _sync_build_and_preview(
         compiler_output = f"{result.stderr}\n{result.stdout}"
         pdf_generated = main_pdf_path.exists()
         if pdf_generated:
-            archived_pdf_path = _copy_pdf_to_output(main_pdf_path, local_output_path)
+            archived_pdf_path = _copy_pdf_to_output(main_pdf_path, work_pdf_path)
             status_message = "PDF generated by this compile. Proceeding to visual audit."
             if result.returncode != 0 or _has_latex_error(compiler_output):
                 status_message = (
@@ -144,9 +146,25 @@ def _sync_build_and_preview(
             else:
                 combined_output = status_message
 
-            return True, combined_output, _render_pdf_preview_images(main_pdf_path, local_output_path)
+            artifacts = {
+                "pdf_path": str(archived_pdf_path),
+                "temp_pdf_path": str(main_pdf_path),
+                "log_path": str(local_output_path / f"{job_name}.log"),
+                "tex_path": str(main_tex_path),
+                "cls_path": str(template_cls_path),
+                "job_name": job_name,
+            }
+            return True, combined_output, _render_pdf_preview_images(main_pdf_path, local_output_path, job_name), artifacts
 
-        return False, f"LaTeX compile failed without generating a PDF.\n\n{compiler_output}", []
+        artifacts = {
+            "pdf_path": "",
+            "temp_pdf_path": str(main_pdf_path),
+            "log_path": str(local_output_path / f"{job_name}.log"),
+            "tex_path": str(main_tex_path),
+            "cls_path": str(template_cls_path),
+            "job_name": job_name,
+        }
+        return False, f"LaTeX compile failed without generating a PDF.\n\n{compiler_output}", [], artifacts
     except subprocess.TimeoutExpired as exc:
         raise LatexEnvironmentError(f"LaTeX compilation timed out ({timeout}s).") from exc
     except Exception as exc:
@@ -154,6 +172,6 @@ def _sync_build_and_preview(
 
 
 async def build_and_preview(
-    cls_content: str, tex_content: str, timeout: int = 60
-) -> Tuple[bool, str, List[Dict[str, str]]]:
-    return await asyncio.to_thread(_sync_build_and_preview, cls_content, tex_content, timeout)
+    cls_content: str, tex_content: str, job_name: str = "template", timeout: int = 60
+) -> Tuple[bool, str, List[Dict[str, str]], Dict[str, str]]:
+    return await asyncio.to_thread(_sync_build_and_preview, cls_content, tex_content, job_name, timeout)

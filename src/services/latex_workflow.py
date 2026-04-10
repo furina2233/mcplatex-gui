@@ -1,15 +1,21 @@
+"""Deprecated legacy workflow.
+
+Use `services.work_service.WorkService` and the split services under `services/`
+for all new execution paths.
+"""
+
 import os
 import asyncio
 import traceback
 import base64
 import re
 import copy
+import warnings
 from typing import List
-
 import instructor
 from rich.console import Console
 
-from agents.cls_inspector import CLSInspectorInput
+from agents.cls_inspector import CLSInspectorInput, CLSInspectorOutput
 from agents.combined_inspector import CombinedInspectorInput
 from agents.img_recognizer import ImgRecognizerInput
 from latex_build_and_preview import LatexEnvironmentError, build_and_preview
@@ -25,6 +31,12 @@ from agents.semantic_extractor import SemanticExtractorInput, SemanticExtractorO
 from agents.debugger_agent import DebuggerInput, DebuggerOutput
 from agents.visual_auditor import VisualAuditorInput, VisualAuditorOutput
 from agents.tex_inspector import TexInspectorInput, TexInspectorOutput
+from services.workflow_support import (
+    HEADER_FOOTER_AUDIT_GUIDANCE,
+    HEADER_FOOTER_RESTORATION_GUIDANCE,
+    HEADER_FOOTER_REVISION_GUIDANCE,
+)
+from utils.cls_builder import build_cls_code
 from schemas.style_schema import FontFeature, PageLayout, SpacingFeature
 
 
@@ -42,9 +54,12 @@ class LatexReverseEngineeringService:
         img_recognizer_agent,
         max_retries: int = 5,
     ):
-        """
-        初始化服务，注入所有需要的 Agent。
-        """
+        """已废弃：请改用 `WorkService`。"""
+        warnings.warn(
+            "LatexReverseEngineeringService is deprecated; use WorkService instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.style_agent = style_agent
         self.cls_agent = cls_agent
         self.tex_agent = tex_agent
@@ -103,13 +118,13 @@ class LatexReverseEngineeringService:
 
             # 5. 阶段四：编译与修复循环 (Async Loop)
             # 包含：编译错误修复 + 视觉差异修正
-            final_cls, final_tex, images, is_success = await self._compile_and_refine(
+            final_cls, final_tex, final_cls_code, final_tex_code, images, is_success = await self._compile_and_refine_v2(
                 cls_inspector_output, tex_inspector_output, style_report, image_paths
             )
 
             # 5. 保存结果
-            self._save_final_results(
-                output_dir, final_cls, final_tex, images, is_success
+            self._save_final_results_v2(
+                output_dir, final_cls, final_tex, final_cls_code, final_tex_code, images, is_success
             )
 
         except Exception as e:
@@ -129,7 +144,8 @@ class LatexReverseEngineeringService:
                 "Analyze the provided paper screenshots and estimate structured layout parameters. "
                 "You must identify margins, column count, column gap, header height, header-to-text spacing, "
                 "footer spacing, paragraph indent, body line spacing, paragraph spacing, section and subsection "
-                "spacing, title/author/abstract spacing, caption spacing, and representative font/alignment features."
+                "spacing, title/author/abstract spacing, caption spacing, and representative font/alignment features. "
+                f"{HEADER_FOOTER_RESTORATION_GUIDANCE}"
             ),
             images=[instructor.Image.from_path(path) for path in image_paths],
         )
@@ -157,7 +173,8 @@ class LatexReverseEngineeringService:
                 "请从这些论文截图中提取文本内容，生成 .tex 文件。\n\n"
                 "【图片/表格处理】完全忽略内部内容，只提取 caption，用占位符替代。\n"
                 "【禁止】使用 \\textbf, \\Large, \\vspace 等样式命令。"
-                "Only transcribe content that is clearly visible in the images. If the last sentence is cut off, stop there and do not complete it. Do not invent figures, tables, captions, references, a References section, a thebibliography environment, or a bibliography command unless they are clearly visible.\n"
+                "Only transcribe content that is clearly visible in the images. If the last sentence is cut off, stop there and do not complete it. Do not invent figures, tables, captions, references, a References section, a thebibliography environment, or a bibliography command unless they are clearly visible. "
+                f"{HEADER_FOOTER_RESTORATION_GUIDANCE}\n"
             ),
             images=[instructor.Image.from_path(p) for p in image_paths],
         )
@@ -271,7 +288,11 @@ class LatexReverseEngineeringService:
                     new_cls_input = CLSGeneratorInput(
                         mode="revision",
                         style_report=style_report,
-                        revision_feedback=f"Render Comparison Audit Failed. Feedback: {audit_result.feedback}",
+                        revision_feedback=(
+                            "Render Comparison Audit Failed. "
+                            f"{HEADER_FOOTER_REVISION_GUIDANCE} "
+                            f"Feedback: {audit_result.feedback}"
+                        ),
                         previous_config=current_cls,
                     )
                     current_cls = self._normalize_cls_output(
@@ -288,6 +309,224 @@ class LatexReverseEngineeringService:
             self.console.print("[red]❌ 已达到最大重试次数，停止优化。[/red]")
 
         return current_cls, current_tex, final_images, is_finished
+
+    async def _compile_and_refine_v2(
+        self,
+        cls_output: CLSGeneratorOutput,
+        tex_output: SemanticExtractorOutput,
+        style_report: StyleAnalysisReport,
+        image_paths: list[str],
+    ) -> tuple[CLSGeneratorOutput, SemanticExtractorOutput, str, str, list[dict[str, str]], bool]:
+        """Compile using working source files and repair the failing file in place before retrying."""
+        self.console.rule("[bold cyan]阶段四：编译、定向修复与重试[/bold cyan]")
+
+        current_cls = self._normalize_cls_output(cls_output)
+        current_cls_code = build_cls_code(current_cls)
+        current_tex_code = self._normalize_tex_documentclass(tex_output.tex_code)
+        current_tex = SemanticExtractorOutput(tex_code=current_tex_code)
+        final_images: list[dict[str, str]] = []
+        is_finished = False
+        attempt = 0
+
+        while attempt < self.max_retries:
+            attempt += 1
+            self.console.print(f"\n[bold blue]迭代循环 ({attempt}/{self.max_retries})[/bold blue]")
+
+            self._write_working_sources(current_cls_code, current_tex_code)
+            self._save_iteration_snapshot(attempt, current_cls_code, current_tex_code)
+
+            try:
+                pdf_generated, msg, images = await build_and_preview(current_cls_code, current_tex_code)
+            except LatexEnvironmentError as env_err:
+                self.console.print("\n[bold red]严重环境错误，程序终止。[/bold red]")
+                self.console.print(f"[red]原因: {str(env_err)}[/red]")
+                raise
+
+            if not pdf_generated:
+                self.console.print("[bold red]编译失败（代码错误）[/bold red]")
+                log_preview = msg[-1000:] if len(msg) > 1000 else msg
+                self.console.print(f"[dim]Log Tail: ...{log_preview}[/dim]")
+
+                current_cls_code, current_tex_code = await self._repair_compilation_error_v2(
+                    error_log=msg,
+                    cls_code=current_cls_code,
+                    tex_code=current_tex_code,
+                )
+                current_tex = SemanticExtractorOutput(tex_code=current_tex_code)
+                continue
+
+            self.console.print("[bold green]本轮编译已生成 PDF，进入渲染对比审计阶段。[/bold green]")
+            final_images = images
+
+            if not images:
+                self.console.print("[yellow]本轮编译已生成 PDF，但未生成预览图，跳过渲染审计。[/yellow]")
+                is_finished = True
+                break
+
+            try:
+                audit_result = self._perform_render_comparison_audit(
+                    original_path=image_paths[0],
+                    rendered_image=images[0],
+                    cls_output=current_cls,
+                )
+
+                if audit_result.passed:
+                    self.console.print("[bold green]渲染对比审计通过，复刻完成。[/bold green]")
+                    is_finished = True
+                    break
+
+                self.console.print("[bold yellow]渲染对比审计未通过，需要继续调整版式。[/bold yellow]")
+                self.console.print(f"[dim]反馈意见:\n{audit_result.feedback}[/dim]")
+
+                new_cls_input = CLSGeneratorInput(
+                    mode="revision",
+                    style_report=style_report,
+                    revision_feedback=(
+                        "Render Comparison Audit Failed. "
+                        f"{HEADER_FOOTER_REVISION_GUIDANCE} "
+                        f"Feedback: {audit_result.feedback}"
+                    ),
+                    previous_config=current_cls,
+                )
+                current_cls = self._normalize_cls_output(await self.cls_agent.run_async(new_cls_input))
+                current_cls_code = build_cls_code(current_cls)
+                self._write_working_sources(current_cls_code, current_tex_code)
+            except Exception as exc:
+                self.console.print(f"[red]渲染对比审计阶段发生错误: {exc}[/red]")
+                is_finished = True
+                break
+
+        if not is_finished:
+            self.console.print("[red]❌ 已达到最大重试次数，停止优化。[/red]")
+
+        return current_cls, current_tex, current_cls_code, current_tex_code, final_images, is_finished
+
+    async def _repair_compilation_error_v2(
+        self,
+        error_log: str,
+        cls_code: str,
+        tex_code: str,
+    ) -> tuple[str, str]:
+        """Diagnose the failed file, repair that file with the error context, overwrite it, and return the new sources."""
+        self.console.print("[yellow]正在请求 Agent 5 分析错误日志...[/yellow]")
+
+        log_snippet = error_log[-3000:] if len(error_log) > 3000 else error_log
+        debugger_input = DebuggerInput(
+            error_log=log_snippet,
+            cls_snippet=cls_code[:1000],
+            tex_snippet=tex_code[:1000],
+        )
+        debug_result: DebuggerOutput = self.debugger_agent.run(debugger_input)
+
+        self.console.print(f"[bold magenta]诊断结果:[/bold magenta] {debug_result.error_summary}")
+        self.console.print(
+            f"[dim]责任方: {debug_result.target_agent} | 建议: {debug_result.fix_instruction}[/dim]"
+        )
+
+        error_feedback = self._build_error_feedback(debug_result, log_snippet)
+
+        if debug_result.target_agent == "cls_generator":
+            self.console.print("正在请求 [bold]Agent 7 (CLS Inspector)[/bold] 修复 template.cls ...")
+            repair_input = CLSInspectorInput(
+                cls_doc=cls_code,
+                error_feedback=error_feedback,
+            )
+            repaired_cls: CLSInspectorOutput = await asyncio.to_thread(
+                self.cls_inspector_agent.run, repair_input
+            )
+            cls_code = self._normalize_latex_source(repaired_cls.cls_doc_after)
+            self._overwrite_working_source("cls", cls_code)
+            return cls_code, tex_code
+
+        self.console.print("正在请求 [bold]Agent 6 (TEX Inspector)[/bold] 修复 main.tex ...")
+        repair_input = TexInspectorInput(
+            tex_doc=tex_code,
+            error_feedback=error_feedback,
+        )
+        repaired_tex: TexInspectorOutput = await asyncio.to_thread(
+            self.tex_inspector_agent.run, repair_input
+        )
+        tex_code = self._normalize_tex_documentclass(repaired_tex.tex_doc_after)
+        self._overwrite_working_source("tex", tex_code)
+        return cls_code, tex_code
+
+    def _build_error_feedback(self, debug_result: DebuggerOutput, error_log: str) -> str:
+        target_file = "template.cls" if debug_result.target_agent == "cls_generator" else "main.tex"
+        return (
+            f"Error summary: {debug_result.error_summary}\n"
+            f"Target file: {target_file}\n"
+            f"Fix instruction: {debug_result.fix_instruction}\n\n"
+            f"Compiler log tail:\n{error_log}"
+        )
+
+    def _normalize_latex_source(self, source: str) -> str:
+        normalized = source.replace("\r\n", "\n").strip()
+        return normalized + "\n"
+
+    def _result_dir(self) -> str:
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        return os.path.join(project_root, "result")
+
+    def _working_source_paths(self) -> tuple[str, str]:
+        result_dir = self._result_dir()
+        os.makedirs(result_dir, exist_ok=True)
+        return os.path.join(result_dir, "template.cls"), os.path.join(result_dir, "main.tex")
+
+    def _write_working_sources(self, cls_code: str, tex_code: str) -> None:
+        cls_path, tex_path = self._working_source_paths()
+        with open(cls_path, "w", encoding="utf-8") as cls_file:
+            cls_file.write(self._normalize_latex_source(cls_code))
+        with open(tex_path, "w", encoding="utf-8") as tex_file:
+            tex_file.write(self._normalize_latex_source(tex_code))
+
+    def _overwrite_working_source(self, source_type: str, content: str) -> None:
+        cls_path, tex_path = self._working_source_paths()
+        target_path = cls_path if source_type == "cls" else tex_path
+        with open(target_path, "w", encoding="utf-8") as target_file:
+            target_file.write(self._normalize_latex_source(content))
+
+    def _save_final_results_v2(
+        self,
+        output_dir: str,
+        cls_output: CLSGeneratorOutput,
+        tex_output: SemanticExtractorOutput,
+        cls_code: str,
+        tex_code: str,
+        images,
+        is_success: bool,
+    ) -> None:
+        self.console.rule("[bold cyan]保存最终结果[/bold cyan]")
+        os.makedirs(output_dir, exist_ok=True)
+        cls_output = self._normalize_cls_output(cls_output)
+
+        cls_path = os.path.join(output_dir, "template.cls")
+        with open(cls_path, "w", encoding="utf-8") as cls_file:
+            cls_file.write(self._normalize_latex_source(cls_code))
+        self.console.print(f"[green]CLS 已保存: {cls_path}[/green]")
+
+        tex_path = os.path.join(output_dir, "content.tex")
+        with open(tex_path, "w", encoding="utf-8") as tex_file:
+            tex_file.write(self._normalize_latex_source(tex_code))
+        self.console.print(f"[green]TEX 已保存: {tex_path}[/green]")
+
+        config_path = os.path.join(output_dir, "cls_config.json")
+        with open(config_path, "w", encoding="utf-8") as config_file:
+            config_file.write(cls_output.model_dump_json(indent=2))
+        self.console.print(f"[dim]Config 已保存: {config_path}[/dim]")
+
+        if is_success and images:
+            preview_dir = os.path.join(output_dir, "preview")
+            os.makedirs(preview_dir, exist_ok=True)
+
+            for img in images:
+                p_path = os.path.join(preview_dir, img["name"])
+                with open(p_path, "wb") as preview_file:
+                    preview_file.write(base64.b64decode(img["data"]))
+            self.console.print(f"[cyan]预览图已生成: {preview_dir}[/cyan]")
+        else:
+            self.console.print("[yellow]虽然编译失败或未完成，但代码已保存。请手动检查 output 目录。[/yellow]")
+
+        self.console.rule("[bold green]任务结束[/bold green]")
 
     def _perform_render_comparison_audit(
         self,
@@ -309,7 +548,9 @@ class LatexReverseEngineeringService:
                 "Compare the original paper screenshot with the rendered PDF page. "
                 "Focus only on layout, margins, header/footer placement, spacing, fonts, title/abstract/section block geometry, "
                 "and whether the rendered page contains hallucinated trailing content not present in the original image. "
-                "Ignore OCR wording mistakes. Return only field-level feedback that maps to the CLS generator schema.\n\n"
+                "Ignore OCR wording mistakes. "
+                f"{HEADER_FOOTER_AUDIT_GUIDANCE} "
+                "Return only field-level feedback that maps to the CLS generator schema.\n\n"
                 f"Local comparison summary:\n{comparison_summary}\n\n"
                 f"Current CLS configuration:\n{cls_output.model_dump_json(indent=2)}"
             ),
@@ -721,9 +962,11 @@ class LatexReverseEngineeringService:
             instruction_text=(
                 "请分析这些论文截图的全局布局、页眉页脚、字体特征，并提取文本内容生成对应的 .cls 和 .tex 文件。\n\n"
                 "【样式分析】分析页面布局、分栏、页眉页脚、字体特征等。\n"
-                "【TEX 生成】从截图中提取文本内容，生成 .tex 文件，图片/表格用占位符替代。\n"
+                "【TEX 生成】从截图中提取文本内容，生成 .tex 文件，图片和表格用占位符替代。\n"
                 "【CLS 生成】根据样式特征生成 .cls 模板文件。\n\n"
                 "【禁止】在 TEX 文件中使用 \\textbf, \\Large, \\vspace 等样式命令。"
+                "请特别注意页首期刊名或其他页眉文字；如果页首有多行页眉，必须按原样还原；如果页首和正文之间直接有横线，也必须还原。"
+                "页脚不要只看页码；如果存在页码、注解或其他页脚文字，以及任何页脚横线（无论是长横线还是较短的线），都要一并识别并还原。"
             ),
             images=[instructor.Image.from_path(p) for p in image_paths],
         )
@@ -836,3 +1079,4 @@ class LatexReverseEngineeringService:
         
         self.console.print("[green]✅ 初始代码生成完成！[/green]")
         return cls_output, tex_output
+

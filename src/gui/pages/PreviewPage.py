@@ -1,9 +1,10 @@
 import os
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from PySide6.QtWidgets import QWidget, QHBoxLayout
 from qfluentwidgets import BodyLabel, ComboBox, setFont
 
+from src.gui.utils.ScrollPageUtil import create_scrollable_page
 from src.gui.widgets.LineNumberTextEditWidget import LineNumberTextEdit
 
 
@@ -12,8 +13,7 @@ class PreviewPage(QWidget):
         super().__init__(parent=parent)
         self.setObjectName("previewPage")
 
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(30, 30, 30, 30)
+        self.scrollArea, self.scrollWidget, self.layout = create_scrollable_page(self)
 
         self._add_file_selection_box()
         self._add_preview_file_editor()
@@ -26,8 +26,8 @@ class PreviewPage(QWidget):
 
         self.toolBarLayout.addStretch(1)
 
-        self.configLabel = BodyLabel("查看文件", self)
-        self.comboBox = ComboBox(self)
+        self.configLabel = BodyLabel("查看文件", self.scrollWidget)
+        self.comboBox = ComboBox(self.scrollWidget)
         self.comboBox.addItems(['../result/main.tex','../result/template.cls','../result/main.log','../src/llm_request.log'])
         self.comboBox.setCurrentIndex(0)
         self.comboBox.setMinimumWidth(200)
@@ -39,12 +39,13 @@ class PreviewPage(QWidget):
         self.layout.addLayout(self.toolBarLayout)
 
     def _add_preview_file_editor(self):
-        self.textEdit = LineNumberTextEdit(self)
+        self.textEdit = LineNumberTextEdit(self.scrollWidget)
         self.textEdit.setReadOnly(True)
         self.textEdit.setFocusPolicy(Qt.NoFocus)
         self.textEdit.setPlaceholderText("")
         setFont(self.textEdit)
         self.layout.addWidget(self.textEdit)
+        self.layout.addStretch(1)
         self._refresh_table_data()
 
     def _refresh_table_data(self):
