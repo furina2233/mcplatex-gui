@@ -97,7 +97,18 @@ void run_project() {
     exit_and_wait(1);
 }
 
+bool check_mingw() {
+    // 检测是否安装了MinGW
+    int result = system("g++ --version >nul 2>&1");
+    return result == 0;
+}
+
 int main() {
+    if (!check_mingw()) {
+        std::cerr << "请先安装MinGW并添加到环境变量" << std::endl;
+        exit_and_wait(1);
+    }
+
     std::ifstream launcher_json(launcher_json_file_name);
     if (!launcher_json.is_open()) {
         write_to_file();
@@ -105,8 +116,8 @@ int main() {
         launcher_json.open(launcher_json_file_name);
     }
 
-    json data;
     try {
+        json data;
         launcher_json >> data;
         ACTIVATED = data["activated"];
         LATEX_INSTALLED = data["latex_installed"];
