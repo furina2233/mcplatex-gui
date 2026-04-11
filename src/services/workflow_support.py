@@ -78,13 +78,8 @@ def temp_dir() -> Path:
 
 
 def create_work_name() -> str:
-    base_name = datetime.now().strftime("%Y%m%d%H%M%S")
-    candidate = base_name
-    index = 1
-    while (cls_dir() / f"{candidate}.cls").exists():
-        candidate = f"{base_name}_{index}"
-        index += 1
-    return candidate
+    """基于当前时间戳生成工作名称，格式：YYYYMMDD_HHMMSS"""
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
 def extract_documentclass_name(tex_code: str, default: str = "template") -> str:
@@ -227,7 +222,13 @@ def save_final_results(
 
 
 def list_template_files() -> list[Path]:
-    return sorted(cls_dir().glob("*.cls"))
+    """列出所有模板文件，按文件名倒序排列（最新的在前）"""
+    return sorted(cls_dir().glob("*.cls"), reverse=True)
+
+
+def list_tex_files() -> list[Path]:
+    """列出所有TEX文档文件，按文件名倒序排列（最新的在前）"""
+    return sorted(tex_dir().glob("*.tex"), reverse=True)
 
 
 def load_work_item_sources(work_name: str) -> tuple[str | None, str | None]:

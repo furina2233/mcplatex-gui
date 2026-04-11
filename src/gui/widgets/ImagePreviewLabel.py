@@ -1,11 +1,15 @@
 from PySide6.QtCore import Signal, QSize, Qt
 from PySide6.QtWidgets import QLabel
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QUrl
 from qfluentwidgets import FluentIcon as FIF
 from qfluentwidgets import ImageLabel, TransparentToolButton
 
 
 class ImagePreviewLabel(ImageLabel):
     delete_button_clicked = Signal(str)
+    image_double_clicked = Signal(str)
+    
     def __init__(self,image_path:str, image_size: int, index: int, parent=None):
         super().__init__(parent)
         self.image_path = image_path
@@ -51,3 +55,9 @@ class ImagePreviewLabel(ImageLabel):
         super().resizeEvent(e)
         self.index_label.move(0, 0)
         self.delete_button.move(self.width() - self.delete_button.width(), 0)
+    
+    def mouseDoubleClickEvent(self, event):
+        """双击图片时用系统默认程序打开"""
+        if event.button() == Qt.LeftButton:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(self.image_path))
+        super().mouseDoubleClickEvent(event)

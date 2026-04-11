@@ -18,6 +18,8 @@ class PreviewPage(QWidget):
         self._add_file_selection_box()
         self._add_preview_file_editor()
 
+        self.setStyleSheet("background: transparent;")
+
 
     def _add_file_selection_box(self):
         self.toolBarLayout = QHBoxLayout()

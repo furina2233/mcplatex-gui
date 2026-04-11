@@ -38,6 +38,8 @@ class ValuesPage(QWidget):
         self._add_values_table()
         self.layout.addStretch(1)
 
+        self.setStyleSheet("background: transparent;")
+
     def _add_values_table(self):
         """ 封装的表格创建方法 """
         self.tableView = TableWidget(self.scrollWidget)

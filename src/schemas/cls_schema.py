@@ -79,20 +79,44 @@ class SectionSettings(BaseIOSchema):
     subsection_space_after: str = Field(...)
 
 
+class HeaderLineConfig(BaseIOSchema):
+    """单行页眉配置，用于支持多行期刊名"""
+
+    text: str = Field(default="", description="该行显示的文字内容")
+    font_size: str = Field(default="\\large", description="字体大小，如 \\large, \\Large, \\normalsize")
+    font_weight: Literal["normal", "bold"] = Field(default="bold", description="字体粗细")
+    font_family: Literal["serif", "sans-serif"] = Field(default="sans-serif", description="字体族")
+    space_after: str = Field(default="0pt", description="与下一行的间距")
+
+
 class HeaderFooterSettings(BaseIOSchema):
     """Header and footer content placement settings for first and running pages."""
 
+    # 多行期刊名配置（新增）
+    journal_header_lines: list[HeaderLineConfig] = Field(
+        default_factory=list,
+        description="期刊名多行配置，每行可独立设置字体和间距。适用于多行期刊名的情况。",
+    )
+
+    # 传统单行页眉（向后兼容）
     first_page_header_left: str = Field(default="")
     first_page_header_center: str = Field(default="")
     first_page_header_right: str = Field(default="")
     first_page_footer_center: str = Field(default="")
-    first_page_has_rule: bool = Field(default=False)
+
+    # 分隔线配置（新增）
+    header_rule_width: str = Field(default="0.4pt", description="页眉与正文之间的分隔线宽度")
+    header_rule_skip: str = Field(default="0pt", description="页眉分隔线与页眉的间距")
+    footer_rule_width: str = Field(default="0pt", description="页尾与正文之间的分隔线宽度")
+    footer_rule_skip: str = Field(default="0pt", description="页尾分隔线与页尾的间距")
+
+    first_page_has_rule: bool = Field(default=True, description="首页是否显示页眉分隔线")
+
+    # 页眉页脚内容
     running_header_left: str = Field(default="")
     running_header_center: str = Field(default="")
     running_header_right: str = Field(default="\\thepage")
     running_footer_center: str = Field(default="")
-    header_rule_width: str = Field(default="0.4pt")
-    footer_rule_width: str = Field(default="0pt")
 
 
 class ParagraphSettings(BaseIOSchema):
@@ -115,6 +139,35 @@ class CaptionSettings(BaseIOSchema):
     table_position: Literal["above", "below"] = Field(default="above")
 
 
+class FootnoteSettings(BaseIOSchema):
+    """脚注/注解配置"""
+
+    # 首页脚注（如基金信息、通讯作者、收稿日期等）
+    first_page_footnote: str = Field(
+        default="",
+        description="首页底部脚注内容（如基金信息、通讯作者、收稿日期等）。支持LaTeX格式代码。",
+    )
+    first_page_footnote_font_size: str = Field(default="\\footnotesize", description="首页脚注字体大小")
+    first_page_footnote_alignment: Literal["left", "center", "right"] = Field(default="left", description="首页脚注对齐方式")
+
+    # 正文脚注样式
+    footnote_font_size: str = Field(default="\\footnotesize", description="正文脚注字体大小")
+    footnote_font_style: Literal["normal", "italic"] = Field(default="normal", description="正文脚注字体样式")
+    footnote_numbering_format: str = Field(
+        default="\\arabic{footnote}",
+        description="脚注编号格式，如 \\arabic{footnote}, \\fnsymbol{footnote}",
+    )
+    footnote_rule_width: str = Field(default="0.4pt", description="脚注分割线宽度")
+    footnote_rule_skip: str = Field(default="8pt", description="脚注分割线与正文的间距")
+    footnote_indent: str = Field(default="0pt", description="脚注文本的缩进")
+
+    # 符号标记
+    use_symbol_marks: bool = Field(
+        default=False,
+        description="是否使用符号标记（如*†‡）代替数字编号。常用于首页作者单位标注。",
+    )
+
+
 class CLSGeneratorOutput(BaseIOSchema):
     """Complete structured configuration used to render template.cls."""
 
@@ -130,5 +183,6 @@ class CLSGeneratorOutput(BaseIOSchema):
     header_footer: HeaderFooterSettings = Field(...)
     paragraph: ParagraphSettings = Field(...)
     caption: CaptionSettings = Field(...)
+    footnote: FootnoteSettings = Field(default_factory=FootnoteSettings, description="脚注/注解配置")
     additional_packages: list[str] = Field(default_factory=list)
     custom_commands: str = Field(default="")
