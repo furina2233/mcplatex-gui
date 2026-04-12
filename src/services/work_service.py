@@ -26,6 +26,7 @@ from services.workflow_support import (
     create_work_name,
     normalize_tex_documentclass,
     normalize_cls_output,
+    ensure_cls_output_proper_types,
     save_final_results,
     save_iteration_snapshot,
     write_working_sources,
@@ -115,6 +116,8 @@ class WorkService:
         self.console.print("已生成 tex 文件")
         self.console.print("已生成 cls 文件")
         current_cls = normalize_cls_output(current_cls, class_name=work_name)
+        # 确保嵌套对象类型正确
+        current_cls = ensure_cls_output_proper_types(current_cls)
         current_cls_code = build_cls_code(current_cls)
         current_tex_code = normalize_tex_documentclass(current_tex.tex_code, work_name)
 
@@ -202,6 +205,8 @@ class WorkService:
         self.console.print("已生成 tex 文件")
         self.console.print("已生成 cls 文件")
         self._current_cls = normalize_cls_output(self._current_cls, class_name=self._work_name)
+        # 确保嵌套对象类型正确
+        self._current_cls = ensure_cls_output_proper_types(self._current_cls)
         self._current_cls_code = build_cls_code(self._current_cls)
         self._current_tex_code = normalize_tex_documentclass(self._current_tex.tex_code, self._work_name)
         self._final_images = []
@@ -249,26 +254,34 @@ class WorkService:
             if user_feedback:
                 self.console.print(f"根据用户反馈修改代码：{user_feedback}")
                 try:
-                    # 使用专门的手动调整Agent
+                    # 将 cls 配置对象转为 JSON 传给模型
+                    cls_config_json = self._current_cls.model_dump_json(indent=2)
+
                     adjustor_input = ManualAdjustorInput(
                         user_feedback=user_feedback,
-                        cls_code=self._current_cls_code,
+                        cls_config=cls_config_json,
                         tex_code=self._current_tex_code,
                     )
-                    
-                    revised_output = await asyncio.to_thread(
-                        self.manual_adjustor_agent.run, adjustor_input
-                    )
-                    
-                    # 更新代码
-                    self._current_cls_code = revised_output.cls_code_after
+
+                    # manual_adjustor_agent使用异步客户端创建,需要用run_async
+                    revised_output = await self.manual_adjustor_agent.run_async(adjustor_input)
+
+                    # 根据模型返回的修改列表更新 cls 配置
+                    if revised_output.modifications:
+                        self._apply_modifications(revised_output.modifications)
+                        # 确保类型正确
+                        self._current_cls = ensure_cls_output_proper_types(self._current_cls)
+                        # 重新生成 cls_code
+                        self._current_cls_code = build_cls_code(self._current_cls)
+
+                    # 更新 tex 代码
                     self._current_tex_code = revised_output.tex_code_after
                     self._current_tex.tex_code = self._current_tex_code
-                    
+
                     if revised_output.explanation:
                         self.console.print(f"修改说明：{revised_output.explanation}")
                     self.console.print("已根据用户反馈修改代码")
-                    
+
                 except Exception as e:
                     self.console.print(f"代码修改失败：{e}，继续使用当前代码")
 
@@ -292,6 +305,55 @@ class WorkService:
             "work_name": self._work_name,
             "pdf_path": compile_result.pdf_path if compile_result.pdf_generated else "",
         }
+
+    def _apply_modifications(self, modifications):
+        """
+        将模型返回的字段修改列表应用到 _current_cls 配置对象
+        modifications: list[CLSFieldModification]
+        """
+        from agents.manual_adjustor import CLSFieldModification
+        from schemas.cls_schema import HeaderLineConfig, FooterLineConfig, FootnoteSettings
+
+        for mod in modifications:
+            field_path = mod.field_path
+            new_value = mod.new_value
+
+            # 解析点号分隔的路径
+            parts = field_path.split(".")
+            if not parts:
+                self.console.print(f"警告: 无效的字段路径: {field_path}")
+                continue
+
+            # 导航到目标对象
+            obj = self._current_cls
+            parent = None
+            for part in parts[:-1]:
+                if not hasattr(obj, part):
+                    self.console.print(f"警告: 路径 '{field_path}' 中的 '{part}' 不存在")
+                    break
+                parent = obj
+                obj = getattr(obj, part)
+            else:
+                # 设置新值
+                last_part = parts[-1]
+                if hasattr(obj, last_part):
+                    try:
+                        # 特殊处理: journal_header_lines 需要转为 HeaderLineConfig 对象
+                        if last_part == "journal_header_lines" and isinstance(new_value, list):
+                            new_value = [
+                                HeaderLineConfig(**item) if isinstance(item, dict) else item
+                                for item in new_value
+                            ]
+                        # 特殊处理: footnote 需要转为 FootnoteSettings 对象
+                        elif last_part == "footnote" and isinstance(new_value, dict):
+                            new_value = FootnoteSettings(**new_value)
+
+                        setattr(obj, last_part, new_value)
+                        self.console.print(f"已更新 {field_path} = {new_value}")
+                    except Exception as e:
+                        self.console.print(f"警告: 更新 {field_path} 失败: {e}")
+                else:
+                    self.console.print(f"警告: 属性 '{last_part}' 不存在于 {type(obj).__name__}")
 
     def get_current_state(self) -> dict:
         """获取当前手动调整状态"""

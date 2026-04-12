@@ -59,9 +59,9 @@ def create_combined_inspector_agent(
             client=client,
             model=model,
             model_api_parameters={
-                "max_tokens": 8192,  # 增加输出上限，防止 JSON 被截断
+                "max_tokens": 65536,
                 "max_retries": 3,
-                "temperature": 0.1,  # 降低随机性，有助于格式稳定
+                "temperature": 0.1,
             },
             system_prompt_generator=combined_inspector_config.system_prompt_generator,
             history=history,

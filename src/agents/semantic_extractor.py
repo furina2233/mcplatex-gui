@@ -97,7 +97,7 @@ def create_semantic_extractor_agent(
             client=client,
             model=model,
             model_api_parameters={
-                "max_tokens": 32768,
+                "max_tokens": 131072,
                 "max_retries": 3,
                 "temperature": 0.1,
             },

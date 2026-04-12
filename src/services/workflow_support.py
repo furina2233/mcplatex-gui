@@ -119,6 +119,8 @@ def sanitize_generated_tex(tex_code: str) -> str:
 
 
 def normalize_cls_output(cls_output: CLSGeneratorOutput, class_name: str = "template") -> CLSGeneratorOutput:
+    from schemas.cls_schema import HeaderLineConfig, FootnoteSettings
+
     def normalize_value(value):
         if isinstance(value, str):
             return value.replace("\\\\", "\\")
@@ -130,7 +132,22 @@ def normalize_cls_output(cls_output: CLSGeneratorOutput, class_name: str = "temp
 
     normalized = normalize_value(copy.deepcopy(cls_output.model_dump()))
     normalized["class_name"] = class_name
-    return CLSGeneratorOutput.model_validate(normalized)
+
+    # 使用 model_validate 创建对象
+    result = CLSGeneratorOutput.model_validate(normalized)
+
+    # 确保 header_footer.journal_header_lines 中的元素是 HeaderLineConfig 对象
+    if result.header_footer and result.header_footer.journal_header_lines:
+        result.header_footer.journal_header_lines = [
+            line if isinstance(line, HeaderLineConfig) else HeaderLineConfig.model_validate(line)
+            for line in result.header_footer.journal_header_lines
+        ]
+
+    # 确保 footnote 是 FootnoteSettings 对象
+    if hasattr(result, "footnote") and result.footnote and isinstance(result.footnote, dict):
+        result.footnote = FootnoteSettings.model_validate(result.footnote)
+
+    return result
 
 
 def normalize_latex_source(source: str) -> str:
@@ -245,7 +262,31 @@ def load_cls_output(work_name: str) -> CLSGeneratorOutput | None:
         if not cls_path.exists():
             return None
         return parse_generated_cls_code(cls_path.read_text(encoding="utf-8"), class_name=work_name)
-    return CLSGeneratorOutput.model_validate_json(path.read_text(encoding="utf-8"))
+    # 加载后确保嵌套对象类型正确
+    result = CLSGeneratorOutput.model_validate_json(path.read_text(encoding="utf-8"))
+    return ensure_cls_output_proper_types(result)
+
+
+def ensure_cls_output_proper_types(cls_output: CLSGeneratorOutput) -> CLSGeneratorOutput:
+    """
+    确保 CLSGeneratorOutput 中的嵌套对象是正确类型而非 dict。
+    这在从 JSON 加载或从 LLM 返回后特别有用。
+    """
+    from schemas.cls_schema import HeaderLineConfig, FooterLineConfig, FootnoteSettings
+
+    # 确保 header_footer.journal_header_lines 中的元素是 HeaderLineConfig
+    if cls_output.header_footer and cls_output.header_footer.journal_header_lines:
+        cls_output.header_footer.journal_header_lines = [
+            line if isinstance(line, HeaderLineConfig) else HeaderLineConfig.model_validate(line)
+            for line in cls_output.header_footer.journal_header_lines
+        ]
+
+    # 确保 footnote 是 FootnoteSettings
+    if hasattr(cls_output, "footnote") and cls_output.footnote:
+        if isinstance(cls_output.footnote, dict):
+            cls_output.footnote = FootnoteSettings.model_validate(cls_output.footnote)
+
+    return cls_output
 
 
 def load_style_report(work_name: str) -> StyleAnalysisReport | None:

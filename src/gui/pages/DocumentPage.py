@@ -361,6 +361,15 @@ class DocumentPage(QWidget):
             index = self.document_combo.findText(previous_name)
             if index >= 0:
                 self.document_combo.setCurrentIndex(index)
+    
+    def on_template_generated(self, work_name: str):
+        """
+        槽函数:当模板区生成新模板和tex后被调用
+        刷新文档列表并选中最新的文档
+        """
+        # 刷新文档列表
+        self._refresh_tex_options(work_name)
+        self.log_card.append_log(f"已自动选中文档：{work_name}.tex")
 
     def _set_busy(self, is_busy: bool):
         self.import_document_button.setEnabled(not is_busy)

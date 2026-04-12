@@ -93,10 +93,11 @@ def build_cls_code(config: CLSGeneratorOutput) -> str:
     lines.append("% Header / footer")
     lines.append("\\pagestyle{fancy}")
     lines.append("\\fancyhf{}")
-    
+
     # 多行期刊名处理（新增）
     if hf.journal_header_lines:
         # 如果有新的多行配置，优先使用
+        lines.append("% 首页多行期刊名")
         for i, line_config in enumerate(hf.journal_header_lines):
             font_cmd = _build_font_command(
                 line_config.font_size,
@@ -104,7 +105,7 @@ def build_cls_code(config: CLSGeneratorOutput) -> str:
                 "normal",
                 line_config.font_family,
             )
-            # 首页页眉
+            # 首页页眉中间显示期刊名
             lines.append(f"\\fancyhead[C]{{{font_cmd}{line_config.text}}}")
             if line_config.space_after and line_config.space_after != "0pt":
                 lines.append(f"\\fancyhead[C]{{\\vspace{{{line_config.space_after}}}}}")
@@ -116,31 +117,44 @@ def build_cls_code(config: CLSGeneratorOutput) -> str:
             lines.append(f"\\fancyhead[C]{{{hf.first_page_header_center}}}")
         if hf.first_page_header_right:
             lines.append(f"\\fancyhead[R]{{{hf.first_page_header_right}}}")
-    
+
+    # 内页页眉
     if hf.running_header_left:
         lines.append(f"\\fancyhead[L]{{{hf.running_header_left}}}")
     if hf.running_header_center:
         lines.append(f"\\fancyhead[C]{{{hf.running_header_center}}}")
     if hf.running_header_right:
         lines.append(f"\\fancyhead[R]{{{hf.running_header_right}}}")
+
+    # 首页页脚
+    if hf.first_page_footer_left:
+        lines.append(f"\\fancyfoot[L]{{{hf.first_page_footer_left}}}")
     if hf.first_page_footer_center:
         lines.append(f"\\fancyfoot[C]{{{hf.first_page_footer_center}}}")
+    if hf.first_page_footer_right:
+        lines.append(f"\\fancyfoot[R]{{{hf.first_page_footer_right}}}")
+
+    # 内页页脚
+    if hf.running_footer_left:
+        lines.append(f"\\fancyfoot[L]{{{hf.running_footer_left}}}")
     if hf.running_footer_center:
         lines.append(f"\\fancyfoot[C]{{{hf.running_footer_center}}}")
-    
+    if hf.running_footer_right:
+        lines.append(f"\\fancyfoot[R]{{{hf.running_footer_right}}}")
+
     # 页眉分隔线
     lines.append(f"\\renewcommand{{\\headrulewidth}}{{{hf.header_rule_width if hf.first_page_has_rule else '0pt'}}}")
     if hf.header_rule_skip != "0pt":
         lines.append(f"\\setlength{{\\headsep}}{{{hf.header_rule_skip}}}")
-    
+
     # 页尾分隔线
     lines.append(f"\\renewcommand{{\\footrulewidth}}{{{hf.footer_rule_width}}}")
     if hf.footer_rule_skip != "0pt":
         lines.append(f"\\setlength{{\\footskip}}{{{hf.footer_rule_skip}}}")
-    
+
     lines.append("\\fancypagestyle{firstpage}{%")
     lines.append("  \\fancyhf{}")
-    
+
     # 首页多行期刊名（新增）
     if hf.journal_header_lines:
         for i, line_config in enumerate(hf.journal_header_lines):
@@ -161,13 +175,21 @@ def build_cls_code(config: CLSGeneratorOutput) -> str:
             lines.append(f"  \\fancyhead[C]{{{hf.first_page_header_center}}}")
         if hf.first_page_header_right:
             lines.append(f"  \\fancyhead[R]{{{hf.first_page_header_right}}}")
-    
-    # 首页脚注（新增）
+
+    # 首页页脚
+    if hf.first_page_footer_left:
+        lines.append(f"  \\fancyfoot[L]{{{hf.first_page_footer_left}}}")
+    if hf.first_page_footer_center:
+        lines.append(f"  \\fancyfoot[C]{{{hf.first_page_footer_center}}}")
+    if hf.first_page_footer_right:
+        lines.append(f"  \\fancyfoot[R]{{{hf.first_page_footer_right}}}")
+
+    # 首页脚注（优先使用 first_page_footnote）
     fn = config.footnote
     if fn.first_page_footnote:
         align_cmd = _get_alignment_cmd(fn.first_page_footnote_alignment)
         lines.append(f"  \\fancyfoot[L]{{{align_cmd}{fn.first_page_footnote_font_size}{fn.first_page_footnote}}}")
-    
+
     # 首页分隔线
     first_page_rule = hf.header_rule_width if hf.first_page_has_rule else "0pt"
     lines.append(f"  \\renewcommand{{\\headrulewidth}}{{{first_page_rule}}}")

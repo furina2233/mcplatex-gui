@@ -1,5 +1,8 @@
+import sys
+
 from PySide6.QtCore import QTimer
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QWidget, QApplication
 from qfluentwidgets import FluentWindow, FluentIcon as FIF, NavigationItemPosition
 from qfluentwidgets import Theme, setTheme
@@ -33,7 +36,11 @@ class MainWindow(FluentWindow):
         super().__init__()
         # _set_high_dpi_scaling()
 
-        self.setWindowTitle("McpLatex")
+        self.setWindowTitle("FreeWrite")
+        
+        # 保存页面引用
+        self.template_page = None
+        self.document_page = None
 
         size = get_screen_size(0.55)
         size.setWidth(int(size.width()-(size.width()-size.height())/5))
@@ -83,13 +90,31 @@ class MainWindow(FluentWindow):
             page = page(self)
             page.setObjectName(route_key)
             self.stackedWidget.addWidget(page)
+            
+            # 保存页面引用
+            if route_key == "templatePage":
+                self.template_page = page
+            elif route_key == "documentPage":
+                self.document_page = page
+        
         self.navigationInterface.addWidget(
             routeKey=route_key,
             widget=widget,
             position=position,
             onClick=lambda : self._on_navigation_widget_button_clicked(route_key, page)
         )
+        
+        # 建立信号连接(在两个页面都创建完成后)
+        if self.template_page and self.document_page:
+            self._connect_pages()
 
     def _on_navigation_widget_button_clicked(self, route_key: str, widget: QWidget):
         self.stackedWidget.setCurrentWidget(widget)
         self.navigationInterface.setCurrentItem(route_key)
+    
+    def _connect_pages(self):
+        """连接TemplatePage和DocumentPage的信号"""
+        if self.template_page and self.document_page:
+            self.template_page.template_generated.connect(
+                self.document_page.on_template_generated
+            )

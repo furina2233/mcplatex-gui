@@ -8,8 +8,6 @@ SETTINGS_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".
 
 DEFAULT_SETTINGS = {
     "max_retries": 5,
-    "temperature": 0.1,
-    "max_tokens": 32768,
 }
 
 

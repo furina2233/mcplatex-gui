@@ -233,6 +233,9 @@ class ManualAdjustThread(QThread):
 
 
 class TemplatePage(QWidget):
+    # 信号:当新模板和tex生成后发出
+    template_generated = Signal(str)  # 参数为新生成的work_name
+    
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.setObjectName("templatePage")
@@ -479,6 +482,8 @@ class TemplatePage(QWidget):
             work_name = result.get("work_name", "")
             if work_name:
                 self._refresh_template_options(work_name)
+                # 发出信号,通知文档区有新模板生成
+                self.template_generated.emit(work_name)
             self.current_pdf_path = result.get("pdf_path", "") or ""
             if self.current_pdf_path:
                 self.log_card.append_log(f"已生成PDF：{Path(self.current_pdf_path).name}")
@@ -500,6 +505,8 @@ class TemplatePage(QWidget):
             work_name = result.get("work_name", "")
             if work_name:
                 self._refresh_template_options(work_name)
+                # 发出信号,通知文档区有新模板生成
+                self.template_generated.emit(work_name)
             if result.get("created"):
                 self.log_card.append_log(f"已自动选中模板：{work_name}.cls")
             self.current_pdf_path = result.get("pdf_path", "") or ""

@@ -63,8 +63,8 @@ def create_visual_auditor_agent(
             client=client,
             model=model,
             model_api_parameters={
-                "max_tokens": 4096,
-                "temperature": 0.1,  # 低温度以保证评估的客观和严谨
+                "max_tokens": 65536,
+                "temperature": 0.1,
             },
             system_prompt_generator=visual_auditor_config.system_prompt_generator,
             history=history,

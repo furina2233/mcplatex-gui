@@ -89,34 +89,52 @@ class HeaderLineConfig(BaseIOSchema):
     space_after: str = Field(default="0pt", description="与下一行的间距")
 
 
+class FooterLineConfig(BaseIOSchema):
+    """单行页脚配置"""
+
+    text: str = Field(default="", description="该行显示的文字内容，支持 \\thepage 等命令")
+    font_size: str = Field(default="\\footnotesize", description="字体大小")
+    font_weight: Literal["normal", "bold"] = Field(default="normal", description="字体粗细")
+    alignment: Literal["left", "center", "right"] = Field(default="center", description="对齐方式")
+
+
 class HeaderFooterSettings(BaseIOSchema):
     """Header and footer content placement settings for first and running pages."""
 
+    # ===== 首页页眉配置 =====
     # 多行期刊名配置（新增）
     journal_header_lines: list[HeaderLineConfig] = Field(
         default_factory=list,
-        description="期刊名多行配置，每行可独立设置字体和间距。适用于多行期刊名的情况。",
+        description="首页顶部期刊名/杂志名/会议名的多行配置。每行可独立设置字体和间距。适用于多行期刊名的情况。例如中文期刊名、英文期刊名、卷期号等。",
     )
 
     # 传统单行页眉（向后兼容）
-    first_page_header_left: str = Field(default="")
-    first_page_header_center: str = Field(default="")
-    first_page_header_right: str = Field(default="")
-    first_page_footer_center: str = Field(default="")
+    first_page_header_left: str = Field(default="", description="首页页眉左侧内容")
+    first_page_header_center: str = Field(default="", description="首页页眉中间内容")
+    first_page_header_right: str = Field(default="", description="首页页眉右侧内容")
 
-    # 分隔线配置（新增）
+    # ===== 内页/普通页页眉配置 =====
+    running_header_left: str = Field(default="", description="内页页眉左侧内容，如卷号/期号")
+    running_header_center: str = Field(default="", description="内页页眉中间内容，如期刊名")
+    running_header_right: str = Field(default="\\thepage", description="内页页眉右侧内容，通常是页码")
+
+    # ===== 首页页脚配置 =====
+    first_page_footer_center: str = Field(default="", description="首页页脚中间内容")
+    first_page_footer_left: str = Field(default="", description="首页页脚左侧内容")
+    first_page_footer_right: str = Field(default="", description="首页页脚右侧内容")
+
+    # ===== 内页/普通页页脚配置 =====
+    running_footer_left: str = Field(default="", description="内页页脚左侧内容")
+    running_footer_center: str = Field(default="", description="内页页脚中间内容")
+    running_footer_right: str = Field(default="", description="内页页脚右侧内容")
+
+    # ===== 分隔线配置 =====
     header_rule_width: str = Field(default="0.4pt", description="页眉与正文之间的分隔线宽度")
     header_rule_skip: str = Field(default="0pt", description="页眉分隔线与页眉的间距")
     footer_rule_width: str = Field(default="0pt", description="页尾与正文之间的分隔线宽度")
     footer_rule_skip: str = Field(default="0pt", description="页尾分隔线与页尾的间距")
 
     first_page_has_rule: bool = Field(default=True, description="首页是否显示页眉分隔线")
-
-    # 页眉页脚内容
-    running_header_left: str = Field(default="")
-    running_header_center: str = Field(default="")
-    running_header_right: str = Field(default="\\thepage")
-    running_footer_center: str = Field(default="")
 
 
 class ParagraphSettings(BaseIOSchema):
@@ -140,12 +158,12 @@ class CaptionSettings(BaseIOSchema):
 
 
 class FootnoteSettings(BaseIOSchema):
-    """脚注/注解配置"""
+    """脚注/注解配置 - 所有脚注都应放在页面底部，绝对不要放在正文中"""
 
     # 首页脚注（如基金信息、通讯作者、收稿日期等）
     first_page_footnote: str = Field(
         default="",
-        description="首页底部脚注内容（如基金信息、通讯作者、收稿日期等）。支持LaTeX格式代码。",
+        description="首页底部脚注内容（如基金信息、通讯作者、收稿日期等）。支持LaTeX格式代码。注意：脚注必须放在页面底部，绝对不能出现在正文中间。",
     )
     first_page_footnote_font_size: str = Field(default="\\footnotesize", description="首页脚注字体大小")
     first_page_footnote_alignment: Literal["left", "center", "right"] = Field(default="left", description="首页脚注对齐方式")

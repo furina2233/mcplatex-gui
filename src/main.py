@@ -1,4 +1,5 @@
 import sys
+import ctypes
 
 from PySide6.QtWidgets import QApplication
 from dotenv import load_dotenv, find_dotenv

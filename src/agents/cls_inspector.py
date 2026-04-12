@@ -32,7 +32,7 @@ def create_cls_inspector_agent(
             client=client,
             model=model,
             model_api_parameters={
-                "max_tokens": 8192,
+                "max_tokens": 65536,
                 "max_retries": 3,
                 "temperature": 0.1,
             },

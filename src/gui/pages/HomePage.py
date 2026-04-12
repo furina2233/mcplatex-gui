@@ -1,3 +1,5 @@
+from time import time
+
 from PySide6.QtWidgets import QWidget
 
 from src.gui.utils.ScrollPageUtil import create_scrollable_page
@@ -19,9 +21,9 @@ class HomePage(QWidget):
     def _add_home_card(self):
         home_card = HomeCard(
             parent=self.scrollWidget,
-            title="McpLatex",
-            icon="../res/icons/icon_home_card.png",
-            content="软件描述",
+            title="FreeWrite",
+            icon="../res/icons/free_write.svg",
+            content="让我们开始工作吧！",
         )
         self.layout.addWidget(home_card)
         return home_card

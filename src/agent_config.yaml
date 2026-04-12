@@ -24,9 +24,12 @@ agents:
             - 必须分别估算 `top_margin`、`bottom_margin`、`left_margin`、`right_margin`，双栏时还要估算 `column_sep`。
         - |
           3. 重点分析页眉页脚差异：
-            - 观察首页特有的页眉（如版权声明、会议名）与内页的标准页眉（Running Head）有何不同。
+            - 观察首页和内页的页眉有多少行内容（期刊名可能是多行的）。
+            - 识别页眉中的期刊名/杂志名/会议名、卷号、期号、日期等信息。
             - 确认页码位置在首页和内页是否变化。
             - 估算 `head_height`、`head_sep`、`foot_skip`。
+            - 观察页面底部的脚注内容（基金信息、通讯作者、收稿日期等）。
+            - 区分哪些是页眉页脚的装饰性内容，哪些是论文正文内容。
         - |
           4. 分析字体特征：
             - 识别 Title, Author, Abstract, Section, Body 的字体族（衬线/无衬线）、字号大小（估计值）、粗细及对齐方式。
@@ -59,7 +62,16 @@ agents:
         - 2. 根据报告中的描述，推断出具体的数值参数（字号、间距、边距等）。
         - 3. 对于不确定的参数，使用学术论文的通用默认值。
         - 4. 确保所有尺寸参数都包含单位（pt, mm, cm, em 等）。
-        - 5. 特别注意首页和后续页面的页眉页脚差异。
+        - |
+          5. 【极其重要 - 页眉页脚详细分析】：
+            - 仔细观察样式报告中的页眉页脚描述，识别有多少行内容。
+            - 期刊名/杂志名/会议名：通常位于页眉中央，可能是多行的（如中文名一行、英文名一行、卷期号一行）。
+            - 卷号/期号/日期：通常位于页眉左侧或右侧。
+            - 页码：通常位于页眉右侧或页脚中央。
+            - 对于多行期刊名，使用 `journal_header_lines` 字段，每行独立配置文字、字体大小、粗细、族和间距。
+            - 区分首页页眉和内页页眉的不同内容。
+            - 首页页眉通常包含完整的期刊信息（期刊名、卷号、期号、日期等），而内页页眉可能简化。
+            - 页脚内容（如基金信息、收稿日期等）应该放在 `first_page_footnote` 中，绝对不能放在正文里。
         - 5.1. 必须完整填写 geometry 相关参数：`top_margin`、`bottom_margin`、`left_margin`、`right_margin`、`column_sep`、`head_height`、`head_sep`、`foot_skip`。
         - 5.2. 必须完整填写 paragraph 与标题块相关参数：`line_spread`、`paragraph_indent`、`paragraph_skip`、`caption_skip`、`title.space_before/after`、`author.space_after`、`abstract.space_before/after`、`sections.section_space_before/after`、`sections.subsection_space_before/after`。
         - |
@@ -78,6 +90,19 @@ agents:
         - 页边距推荐使用 mm 或 cm 单位。
         - "不要输出完整 `.cls` 源码；只输出结构化 schema 数据，不要把整份类文件塞进 `custom_commands`。"
         - 如果样式报告中某项信息缺失，使用合理的默认值。
+        - |
+          【页眉页脚配置关键原则】：
+            - 页眉页脚是页面装饰性元素，不属于论文正文内容。
+            - 期刊名、杂志名、会议名、卷号、期号、日期等都应该放在页眉配置中（`journal_header_lines` 或 `running_header_*`）。
+            - 脚注（基金信息、通讯作者、收稿日期等）必须放在页面底部（`first_page_footnote`），绝对不能放在正文中间。
+            - 如果首页有复杂的多行页眉（如期刊名多行显示），使用 `journal_header_lines` 字段。
+            - 内页页眉通常简化为：左侧卷期号、中间期刊名、右侧页码。
+        - |
+          【脚注处理关键原则】：
+            - 脚注永远应该出现在页面底部，而不是正文中间。
+            - 如果原图中有页面底部的注释、基金信息、作者单位等，应该配置为 `first_page_footnote`。
+            - 正文中可以使用 \\footnote{} 命令引用脚注，但脚注文字本身应该由模板在页面底部渲染。
+            - 不要在 .tex 正文中直接写脚注段落，应该使用 \\footnote{} 命令。
 
   # ===============================================================
   # Agent 3: 内容搬运工 (Semantic Extractor)
@@ -118,6 +143,13 @@ agents:
             - 一级标题 -> \\section{...}
             - 二级标题 -> \\subsection{...}
             - 正文段落 -> 直接写文本，段落之间空一行
+            - 脚注 -> 使用 \\footnote{...} 命令，脚注内容会由模板在页面底部渲染
+        - |
+          【脚注处理规则 - 极其重要】：
+            - 页面底部的脚注内容（基金信息、通讯作者、收稿日期等）绝对不要提取为正文段落
+            - 这些脚注是页面装饰性元素，应该由模板的页脚配置处理
+            - 如果正文中有脚注标记（如数字上标），使用 \\footnote{} 命令即可，不需要写脚注的具体内容
+            - 脚注的具体内容会被样式分析师识别并配置到模板的 first_page_footnote 中
         - |
           4. 【图片处理规则 - 极其重要】：
             - 当你看到任何图片、图表、示意图、流程图、截图时
@@ -199,7 +231,8 @@ agents:
              - [Fonts]: 关注 `main_font_family` (serif/sans), `base_font_size`。
              - [Sections]: 关注 `section`/`subsection` 的 `font_size`, `font_weight` (bold/normal), `font_style` (italic/normal)。
              - [Paragraph]: 关注 `line_spread` (行距), `paragraph_indent` (缩进)。
-             - [Header/Footer]: 关注 `header_rule_width` (线条), 位置布局。
+             - [Header/Footer]: 关注 `journal_header_lines`（行数、字体、间距）、`header_rule_width`（线条）、位置布局、`running_header_*` 内容是否正确分布在左中右。
+             - [Footnote]: 关注 `first_page_footnote` 是否出现在页面底部而不是正文中间。
         - "3. 过滤噪音：如果原图是楷体/斜体，而复刻图是粗体，这是一个具体的 Schema 参数错误（font_style/font_weight），必须指出。"
 
       output_instructions:
