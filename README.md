@@ -1,8 +1,8 @@
 <div align="center">
   <h1 align="center">
-    <img src="res/readme_imgs/title.png" width="200" alt="TexFormat logo"/>
+    <img src="res/icons/free_write.svg" width="200" alt="FreeWrite logo"/>
     <br/>
-    TexFormat
+    FreeWrite
   </h1> 
   
   <p>
