@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 setlocal enabledelayedexpansion
 
 :: 1. Path initialization
@@ -12,36 +12,38 @@ set "ZIP_URL=https://github.com/rstudio/tinytex-releases/releases/download/v2026
 set "ZIP_PATH=%ROOT_DIR%TinyTeX.zip"
 set "INSTALL_DIR=%ROOT_DIR%TinyTeX"
 
-echo Configuring LaTeX environment...
+echo [INFO] Configuring LaTeX environment...
 
-:: 2. Check Google connectivity and set proxy
+:: Check Google connectivity through proxy and decide download mode
 set "USE_PROXY=0"
 set "PROXY_URL=http://127.0.0.1:7890"
-echo Checking network connectivity...
+echo [INFO] Checking network connectivity...
 
-:: Test Google connectivity (timeout 3 seconds)
-curl -s --connect-timeout 3 --max-time 5 -o nul -w "%%{http_code}" https://www.google.com > "%TEMP%\google_test.txt" 2>nul
-set /p HTTP_CODE=<"%TEMP%\google_test.txt"
-del "%TEMP%\google_test.txt" 2>nul
-
-if "!HTTP_CODE!"=="200" (
+:: Added -k to bypass SSL issues common with proxies
+curl -s -k -L --connect-timeout 5 --proxy %PROXY_URL% https://www.google.com >nul 2>nul
+if !errorlevel! equ 0 (
+    echo [INFO] Proxy connection successful
     set "USE_PROXY=1"
+    :: Set environment variables for sub-processes
+    set "HTTP_PROXY=%PROXY_URL%"
+    set "HTTPS_PROXY=%PROXY_URL%"
+) else (
+    echo [WARN] Proxy connection failed
+    set "USE_PROXY=0"
+    set "HTTP_PROXY="
+    set "HTTPS_PROXY="
 )
 
-:: Setup curl with proxy if needed
+:: Setup curl with proxy if needed (Added -k)
 set "CURL_PROXY="
 if "!USE_PROXY!"=="1" (
-    set "CURL_PROXY=--proxy %PROXY_URL%"
+    set "CURL_PROXY=--proxy %PROXY_URL% -k"
 )
 
-:: 3. Download TinyTeX using curl
+:: Download TinyTeX using curl
 if not exist "%INSTALL_DIR%" (
-    echo Downloading TinyTeX...
-    if "!USE_PROXY!"=="1" (
-        curl -L %CURL_PROXY% --connect-timeout 30 --retry 3 -o "%ZIP_PATH%" "%ZIP_URL%"
-    ) else (
-        curl -L --connect-timeout 30 --retry 3 -o "%ZIP_PATH%" "%ZIP_URL%"
-    )
+    echo [INFO] Downloading TinyTeX...
+    curl -L !CURL_PROXY! -k --connect-timeout 30 --retry 3 -o "%ZIP_PATH%" "%ZIP_URL%"
 
     if !errorlevel! neq 0 (
         echo [ERROR] TinyTeX download failed.
@@ -50,48 +52,50 @@ if not exist "%INSTALL_DIR%" (
         exit /b 1
     )
 
-    echo Extracting TinyTeX...
+    echo [INFO] Extracting TinyTeX...
     if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
     tar -xf "%ZIP_PATH%" -C "%ROOT_DIR%."
 
     if !errorlevel! equ 0 (
         del "%ZIP_PATH%"
-        echo TinyTeX installed successfully.
+        echo [SUCCESS] TinyTeX installed successfully.
     ) else (
         echo [ERROR] Extraction failed.
         pause
         exit /b 1
     )
 ) else (
-    echo TinyTeX already exists, skipping download.
+    echo [INFO] TinyTeX already exists, skipping download.
 )
 
-:: 4. Environment variables and package management
+:: Environment variables and package management
 set "PATH=%INSTALL_DIR%\bin\windows;%PATH%"
 
-:: Setup tlmgr proxy if needed
+:: Setup tlmgr proxy and repository
 if "!USE_PROXY!"=="1" (
-    echo Setting tlmgr proxy: %PROXY_URL%
+    echo [INFO] Setting tlmgr proxy: %PROXY_URL%
     call tlmgr option proxy %PROXY_URL%
+    :: Using proxy, default repo is usually fine, but mirror is kept for stability
     call tlmgr option repository https://mirrors.aliyun.com/CTAN/systems/texlive/tlnet/
 ) else (
-    echo Using direct connection for tlmgr.
+    echo [INFO] Using direct connection for tlmgr.
     call tlmgr option repository https://mirrors.aliyun.com/CTAN/systems/texlive/tlnet/
 )
 
 :: Update tlmgr itself first
-echo Updating tlmgr...
+echo [INFO] Updating tlmgr...
 call tlmgr update --self --no-auto-remove
-echo tlmgr update completed.
+echo [INFO] tlmgr update completed.
 
 if exist "%PACKAGE_LIST%" (
-    echo Installing packages from list...
+    echo [INFO] Installing packages from list...
     for /f "usebackq tokens=*" %%i in ("%PACKAGE_LIST%") do (
         set "line=%%i"
         set "firstchar=!line:~0,1!"
         if not "!firstchar!"=="#" if not "!line!"=="" (
             echo Installing: !line!
             if "!USE_PROXY!"=="1" (
+                :: Added --verify-repo=0 to avoid SSL issues with proxy
                 call tlmgr install !line! --verify-repo=0
             ) else (
                 call tlmgr install !line!
@@ -100,5 +104,5 @@ if exist "%PACKAGE_LIST%" (
     )
 )
 
-echo LaTeX configuration completed
+echo [SUCCESS] LaTeX configuration completed.
 exit /b 0
