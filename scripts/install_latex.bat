@@ -11,54 +11,78 @@ set "PACKAGE_LIST=%ROOT_DIR%latex_packages.txt"
 set "ZIP_URL=https://github.com/rstudio/tinytex-releases/releases/download/v2026.03.02/TinyTeX-v2026.03.02.zip"
 set "ZIP_PATH=%ROOT_DIR%TinyTeX.zip"
 set "INSTALL_DIR=%ROOT_DIR%TinyTeX"
-set "ARIA2_EXE=%ROOT_DIR%aria2c.exe"
 
 echo Configuring LaTeX environment...
 
-:: 2. Check and download aria2c
-if not exist "%ARIA2_EXE%" (
-    echo Downloading aria2c...
-    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip' -OutFile '%ROOT_DIR%aria2.zip'"
+:: 2. Check Google connectivity and set proxy
+set "USE_PROXY=0"
+set "PROXY_URL=http://127.0.0.1:7890"
+echo Checking network connectivity...
 
-    if not exist "%ROOT_DIR%aria2_temp" mkdir "%ROOT_DIR%aria2_temp"
+:: Test Google connectivity (timeout 3 seconds)
+curl -s --connect-timeout 3 --max-time 5 -o nul -w "%%{http_code}" https://www.google.com > "%TEMP%\google_test.txt" 2>nul
+set /p HTTP_CODE=<"%TEMP%\google_test.txt"
+del "%TEMP%\google_test.txt" 2>nul
 
-    tar -xf "%ROOT_DIR%aria2.zip" -C "%ROOT_DIR%aria2_temp"
-
-    for /f "delims=" %%f in ('dir /s /b "%ROOT_DIR%aria2_temp\aria2c.exe"') do (
-        move /y "%%f" "%ARIA2_EXE%" >nul
-    )
-
-    rd /s /q "%ROOT_DIR%aria2_temp" >nul 2>&1
-    del "%ROOT_DIR%aria2.zip" >nul 2>&1
+if "!HTTP_CODE!"=="200" (
+    set "USE_PROXY=1"
 )
 
-:: 3. Download TinyTeX
-if not exist "%INSTALL_DIR%" (
-    echo Downloading TinyTeX with aria2c...
-    "%ARIA2_EXE%" --all-proxy="http://127.0.0.1:7890" -x 16 -s 16 --check-certificate=false -d "%ROOT_DIR%." -o "TinyTeX.zip" "%ZIP_URL%"
+:: Setup curl with proxy if needed
+set "CURL_PROXY="
+if "!USE_PROXY!"=="1" (
+    set "CURL_PROXY=--proxy %PROXY_URL%"
+)
 
-    if !errorlevel! neq 0 (
-        echo [WARN] aria2c download failed, trying fallback...
-        powershell -Command "Invoke-WebRequest -Uri '%ZIP_URL%' -OutFile '%ZIP_PATH%'"
+:: 3. Download TinyTeX using curl
+if not exist "%INSTALL_DIR%" (
+    echo Downloading TinyTeX...
+    if "!USE_PROXY!"=="1" (
+        curl -L %CURL_PROXY% --connect-timeout 30 --retry 3 -o "%ZIP_PATH%" "%ZIP_URL%"
+    ) else (
+        curl -L --connect-timeout 30 --retry 3 -o "%ZIP_PATH%" "%ZIP_URL%"
     )
 
-    echo Extracting with tar...
+    if !errorlevel! neq 0 (
+        echo [ERROR] TinyTeX download failed.
+        del "%ZIP_PATH%" 2>nul
+        pause
+        exit /b 1
+    )
+
+    echo Extracting TinyTeX...
     if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
     tar -xf "%ZIP_PATH%" -C "%ROOT_DIR%."
 
     if !errorlevel! equ 0 (
         del "%ZIP_PATH%"
+        echo TinyTeX installed successfully.
     ) else (
         echo [ERROR] Extraction failed.
         pause
         exit /b 1
     )
+) else (
+    echo TinyTeX already exists, skipping download.
 )
 
 :: 4. Environment variables and package management
 set "PATH=%INSTALL_DIR%\bin\windows;%PATH%"
 
-call tlmgr option repository https://mirrors.aliyun.com/CTAN/systems/texlive/tlnet/
+:: Setup tlmgr proxy if needed
+if "!USE_PROXY!"=="1" (
+    echo Setting tlmgr proxy: %PROXY_URL%
+    call tlmgr option proxy %PROXY_URL%
+    call tlmgr option repository https://mirrors.aliyun.com/CTAN/systems/texlive/tlnet/
+) else (
+    echo Using direct connection for tlmgr.
+    call tlmgr option repository https://mirrors.aliyun.com/CTAN/systems/texlive/tlnet/
+)
+
+:: Update tlmgr itself first
+echo Updating tlmgr...
+call tlmgr update --self --no-auto-remove
+echo tlmgr update completed.
 
 if exist "%PACKAGE_LIST%" (
     echo Installing packages from list...
@@ -67,7 +91,11 @@ if exist "%PACKAGE_LIST%" (
         set "firstchar=!line:~0,1!"
         if not "!firstchar!"=="#" if not "!line!"=="" (
             echo Installing: !line!
-            call tlmgr install !line!
+            if "!USE_PROXY!"=="1" (
+                call tlmgr install !line! --verify-repo=0
+            ) else (
+                call tlmgr install !line!
+            )
         )
     )
 )

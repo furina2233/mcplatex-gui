@@ -10,7 +10,27 @@ def sanitize_custom_commands(custom_commands: str) -> str:
     if any(marker in normalized for marker in full_cls_markers):
         return ""
 
-    return normalized
+    # 过滤掉重复的中文字体配置命令
+    # 这些命令已经在 cls 文件的 Packages 部分硬编码添加，不应在 custom_commands 中重复
+    cjk_font_commands = [
+        "\\setCJKmainfont",
+        "\\setCJKsansfont",
+        "\\setCJKmonofont",
+        "\\setCJKfamilyfont",
+    ]
+    
+    lines = normalized.split("\n")
+    filtered_lines = []
+    for line in lines:
+        stripped = line.strip()
+        # 跳过空行和中文字体配置命令
+        if not stripped:
+            continue
+        if any(cmd in stripped for cmd in cjk_font_commands):
+            continue
+        filtered_lines.append(line)
+    
+    return "\n".join(filtered_lines).strip()
 
 
 def build_cls_code(config: CLSGeneratorOutput) -> str:
@@ -51,9 +71,11 @@ def build_cls_code(config: CLSGeneratorOutput) -> str:
         lines.append("\\setmainfont{Arial}")
     lines.append("\\setsansfont{Arial}")
     lines.append("\\setmonofont{Consolas}")
-    lines.append("\\setCJKmainfont{SimSun}")
-    lines.append("\\setCJKsansfont{Microsoft YaHei}")
-    lines.append("\\setCJKmonofont{SimSun}")
+    # 中文字体配置：使用 Windows 系统自带字体
+    # SimSun (宋体) - 正文, SimHei (黑体) - 无衬线, KaiTi (楷体) - 斜体, FangSong (仿宋) - 等宽
+    lines.append("\\setCJKmainfont{SimSun}[BoldFont=SimHei,ItalicFont=KaiTi]")
+    lines.append("\\setCJKsansfont{SimHei}[BoldFont=SimHei]")
+    lines.append("\\setCJKmonofont{FangSong}")
     lines.append("\\setmathfont{Cambria Math}")
     if config.fonts.use_microtype:
         lines.append("\\RequirePackage{microtype}")

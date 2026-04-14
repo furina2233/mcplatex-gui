@@ -46,7 +46,11 @@ class MainWindow(FluentWindow):
         size.setWidth(int(size.width()-(size.width()-size.height())/5))
         while float(size.width()) / float(size.height()) < 1.25:
             size.setWidth(int(size.width() * 1.25))
-        self.setMinimumSize(size)
+        
+        # 设置最小尺寸限制：宽度至少1280，高度至少800
+        min_width = max(size.width(), 1280)
+        min_height = max(size.height(), 800)
+        self.setMinimumSize(min_width, min_height)
         self.resize(size)
 
         self._set_center_on_screen()
