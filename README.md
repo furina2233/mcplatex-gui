@@ -41,6 +41,7 @@
    - 将`res/env_template`复制到根目录，并重命名为`.env`，然后配置环境变量。
    - 运行`launcher.exe`，进行同步依赖和`TinyTex`下载。
    - 成功从`launcher.exe`运行后，即可在IDE中运行。
+   - 推荐每次使用都通过`launcher.exe`运行。
 
 ---
 ## 功能介绍

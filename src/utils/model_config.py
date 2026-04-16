@@ -24,11 +24,21 @@ def env_file_path() -> Path:
     return project_root() / ".env"
 
 
-def load_model_config_values() -> dict[str, str]:
-    values: dict[str, str] = {}
+def ensure_model_env_file_exists() -> Path:
     env_path = env_file_path()
     if env_path.exists():
-        values.update({key: value or "" for key, value in dotenv_values(env_path).items() if key})
+        return env_path
+
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    content = "\n".join(f"{key}=" for key in REQUIRED_MODEL_ENV_KEYS) + "\n"
+    env_path.write_text(content, encoding="utf-8")
+    return env_path
+
+
+def load_model_config_values() -> dict[str, str]:
+    values: dict[str, str] = {}
+    env_path = ensure_model_env_file_exists()
+    values.update({key: value or "" for key, value in dotenv_values(env_path).items() if key})
 
     for key in REQUIRED_MODEL_ENV_KEYS:
         values[key] = os.getenv(key, values.get(key, "") or "")
