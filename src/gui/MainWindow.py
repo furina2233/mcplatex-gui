@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QWidget, QApplication
 from qfluentwidgets import FluentWindow, FluentIcon as FIF, NavigationItemPosition
+from qfluentwidgets import InfoBar, InfoBarPosition
 from qfluentwidgets import Theme, setTheme
 
 from src.gui.pages.AboutPage import AboutPage
@@ -14,6 +15,7 @@ from src.gui.pages.SettingPage import SettingPage
 from src.gui.pages.TemplatePage import TemplatePage
 from src.gui.utils.ScreenSizeUtil import get_screen_size
 from src.gui.widgets.SquareNavigationWidget import SquareNavigationWidget
+from src.utils.model_config import format_missing_model_config_message, get_missing_model_config_keys
 
 timer = QTimer()
 
@@ -41,6 +43,8 @@ class MainWindow(FluentWindow):
         # 保存页面引用
         self.template_page = None
         self.document_page = None
+        self.setting_page = None
+        self._model_config_prompt_shown = False
 
         size = get_screen_size(0.55)
         size.setWidth(int(size.width()-(size.width()-size.height())/5))
@@ -84,6 +88,7 @@ class MainWindow(FluentWindow):
         self.navigationInterface.setCurrentItem("homePage")
         self.navigationInterface.setMinimumWidth(int(get_screen_size(0.05).width()))
         self.navigationInterface.setCollapsible(False)
+        self._prompt_missing_model_config()
 
     def _add_new_widget_to_navigation(self, icon:FIF, text:str, route_key:str,
                                       position:NavigationItemPosition=NavigationItemPosition.TOP):
@@ -100,6 +105,8 @@ class MainWindow(FluentWindow):
                 self.template_page = page
             elif route_key == "documentPage":
                 self.document_page = page
+            elif route_key == "settingPage":
+                self.setting_page = page
         
         self.navigationInterface.addWidget(
             routeKey=route_key,
@@ -111,6 +118,28 @@ class MainWindow(FluentWindow):
         # 建立信号连接(在两个页面都创建完成后)
         if self.template_page and self.document_page:
             self._connect_pages()
+
+    def _prompt_missing_model_config(self):
+        if self._model_config_prompt_shown:
+            return
+
+        missing_keys = get_missing_model_config_keys()
+        if not missing_keys:
+            return
+
+        self._model_config_prompt_shown = True
+        missing_text = format_missing_model_config_message(missing_keys)
+        InfoBar.warning(
+            title="模型配置未完成",
+            content=f"请前往设置页面修改以下字段：{missing_text}",
+            isClosable=True,
+            position=InfoBarPosition.TOP,
+            duration=5000,
+            parent=self,
+        )
+        self.navigationInterface.setCurrentItem("settingPage")
+        if self.setting_page is not None:
+            self.stackedWidget.setCurrentWidget(self.setting_page)
 
     def _on_navigation_widget_button_clicked(self, route_key: str, widget: QWidget):
         self.stackedWidget.setCurrentWidget(widget)

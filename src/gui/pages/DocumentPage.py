@@ -27,6 +27,7 @@ from src.services.workflow_support import (
 )
 from src.services.work_service import WorkService
 from src.utils.cls_builder import build_cls_code
+from src.utils.error_util import get_user_facing_error_message
 from src.utils.qt_log_bridge import QtConsoleBridge
 
 
@@ -63,7 +64,10 @@ class DocumentCompileThread(QThread):
             self.log_message.emit("文档编译完成。")
             self.task_finished.emit(True, {"pdf_path": artifacts.get("pdf_path", "")})
         except Exception as exc:
-            self.task_finished.emit(False, {"message": str(exc)})
+            self.task_finished.emit(
+                False,
+                {"message": str(exc), "exception_type": exc.__class__.__name__},
+            )
 
 
 class DocumentManualAdjustThread(QThread):
@@ -86,7 +90,10 @@ class DocumentManualAdjustThread(QThread):
             self.log_message.emit("任务已完成")
             self.task_finished.emit(True, result)
         except Exception as exc:
-            self.task_finished.emit(False, {"message": str(exc)})
+            self.task_finished.emit(
+                False,
+                {"message": str(exc), "exception_type": exc.__class__.__name__},
+            )
 
 
 class DocumentPage(QWidget):
@@ -281,8 +288,9 @@ class DocumentPage(QWidget):
             show_message(self, "编译成功", MessageType.SUCCESS)
         else:
             message = payload.get("message", "编译失败") if isinstance(payload, dict) else str(payload)
+            exception_type = payload.get("exception_type") if isinstance(payload, dict) else None
             self.log_card.append_log(message)
-            show_message(self, "编译失败", MessageType.ERROR)
+            show_message(self, get_user_facing_error_message(message, exception_type), MessageType.ERROR)
 
     def _on_open_pdf_clicked(self):
         if not self.current_pdf_path or not Path(self.current_pdf_path).exists():
@@ -325,8 +333,9 @@ class DocumentPage(QWidget):
             show_message(self, "手动调整完成", MessageType.SUCCESS)
         else:
             message = payload.get("message", "调整失败") if isinstance(payload, dict) else str(payload)
+            exception_type = payload.get("exception_type") if isinstance(payload, dict) else None
             self.log_card.append_log(message)
-            show_message(self, "手动调整失败", MessageType.ERROR)
+            show_message(self, get_user_facing_error_message(message, exception_type), MessageType.ERROR)
 
         self.start_adjust_button.setEnabled(True)
         self.feedback_input.setEnabled(True)

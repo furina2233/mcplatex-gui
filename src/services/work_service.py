@@ -3,6 +3,7 @@ from typing import List
 
 from rich.console import Console
 
+import llm_client
 from agents import create_cls_generator_agent, create_semantic_extractor_agent, create_style_analyzer_agent
 from agents.cls_inspector import create_cls_inspector_agent
 from agents.combined_inspector import create_combined_inspector_agent
@@ -11,14 +12,6 @@ from agents.img_recognizer import create_img_recognizer_agent
 from agents.tex_inspector import create_tex_inspector_agent
 from agents.visual_auditor import create_visual_auditor_agent
 from agents.manual_adjustor import create_manual_adjustor_agent, ManualAdjustorInput
-from llm_client import (
-    TEXT_MODEL,
-    VISUAL_MODEL,
-    text_async_client,
-    text_client,
-    visual_async_client,
-    visual_client,
-)
 from services.compilation_service import CompilationService
 from services.generation_service import GenerationService
 from services.optimization_service import OptimizationService
@@ -32,6 +25,8 @@ from services.workflow_support import (
     write_working_sources,
 )
 from utils.cls_builder import build_cls_code
+from utils.error_util import is_model_config_error
+from utils.model_config import has_complete_model_config
 from utils.settings_manager import get_setting
 
 
@@ -53,16 +48,20 @@ class WorkService:
         self.max_retries = max_retries if max_retries is not None else get_setting("max_retries", 5)
         self.console = console or Console()
 
-        self.style_agent = create_style_analyzer_agent(visual_client, VISUAL_MODEL)
-        self.cls_agent = create_cls_generator_agent(text_async_client, TEXT_MODEL)
-        self.tex_agent = create_semantic_extractor_agent(visual_async_client, VISUAL_MODEL)
-        self.debugger_agent = create_debugger_agent(text_client, TEXT_MODEL)
-        self.visual_auditor_agent = create_visual_auditor_agent(visual_client, VISUAL_MODEL)
-        self.tex_inspector_agent = create_tex_inspector_agent(text_client, TEXT_MODEL)
-        self.cls_inspector_agent = create_cls_inspector_agent(text_client, TEXT_MODEL)
-        self.combined_inspector_agent = create_combined_inspector_agent(text_client, TEXT_MODEL)
-        self.img_recognizer_agent = create_img_recognizer_agent(visual_client, VISUAL_MODEL)
-        self.manual_adjustor_agent = create_manual_adjustor_agent(text_async_client, TEXT_MODEL)
+        llm_client.reload_model_clients()
+        if not has_complete_model_config():
+            raise ValueError("请检查模型配置")
+
+        self.style_agent = create_style_analyzer_agent(llm_client.visual_client, llm_client.VISUAL_MODEL)
+        self.cls_agent = create_cls_generator_agent(llm_client.text_async_client, llm_client.TEXT_MODEL)
+        self.tex_agent = create_semantic_extractor_agent(llm_client.visual_async_client, llm_client.VISUAL_MODEL)
+        self.debugger_agent = create_debugger_agent(llm_client.text_client, llm_client.TEXT_MODEL)
+        self.visual_auditor_agent = create_visual_auditor_agent(llm_client.visual_client, llm_client.VISUAL_MODEL)
+        self.tex_inspector_agent = create_tex_inspector_agent(llm_client.text_client, llm_client.TEXT_MODEL)
+        self.cls_inspector_agent = create_cls_inspector_agent(llm_client.text_client, llm_client.TEXT_MODEL)
+        self.combined_inspector_agent = create_combined_inspector_agent(llm_client.text_client, llm_client.TEXT_MODEL)
+        self.img_recognizer_agent = create_img_recognizer_agent(llm_client.visual_client, llm_client.VISUAL_MODEL)
+        self.manual_adjustor_agent = create_manual_adjustor_agent(llm_client.text_async_client, llm_client.TEXT_MODEL)
 
         self.generation_service = GenerateFilesService(
             style_agent=self.style_agent,
@@ -283,6 +282,9 @@ class WorkService:
                     self.console.print("已根据用户反馈修改代码")
 
                 except Exception as e:
+                    self.console.print(f"代码修改失败: {e}")
+                    if is_model_config_error(str(e), e.__class__.__name__):
+                        raise
                     self.console.print(f"代码修改失败：{e}，继续使用当前代码")
 
         save_final_results(
@@ -364,5 +366,3 @@ class WorkService:
             "images": self._final_images,
             "attempt": self._attempt,
         }
-
-

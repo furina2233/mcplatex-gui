@@ -1,5 +1,6 @@
 # llm_client.py
 import os
+from pathlib import Path
 
 import httpx
 import instructor
@@ -7,8 +8,9 @@ import openai
 from dotenv import load_dotenv
 
 from utils.log_util import log_util
+from utils.model_config import load_model_config_values
 
-load_dotenv(override=True)
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env", override=True)
 
 TIMEOUT_CONFIG = httpx.Timeout(180.0, connect=60.0)
 
@@ -90,28 +92,53 @@ def build_async_instructor_client(api_key: str, base_url: str, *, json_mode: boo
     return instructor.from_openai(client)
 
 
-TEXT_API_KEY = os.getenv("TEXT_API_KEY")
-TEXT_BASE_URL = normalize_openai_base_url(os.getenv("TEXT_BASE_URL", ""))
-TEXT_MODEL = os.getenv("TEXT_MODEL", "gpt-5.4-mini")
+TEXT_API_KEY = ""
+TEXT_BASE_URL = ""
+TEXT_MODEL = "gpt-5.4-mini"
+text_client = None
+text_async_client = None
 
-if not TEXT_API_KEY or not TEXT_BASE_URL:
-    raise ValueError("TEXT environment variables are not configured. Please check .env.")
+VISUAL_API_KEY = ""
+VISUAL_BASE_URL = ""
+VISUAL_MODEL = "qwen3-vl-plus"
+visual_client = None
+visual_async_client = None
 
-text_client = build_sync_instructor_client(TEXT_API_KEY, TEXT_BASE_URL)
-text_async_client = build_async_instructor_client(TEXT_API_KEY, TEXT_BASE_URL)
 
-VISUAL_API_KEY = os.getenv("VISUAL_API_KEY")
-VISUAL_BASE_URL = normalize_openai_base_url(os.getenv("VISUAL_BASE_URL", ""))
-VISUAL_MODEL = os.getenv("VISUAL_MODEL", "qwen3-vl-plus")
+def reload_model_clients():
+    global TEXT_API_KEY, TEXT_BASE_URL, TEXT_MODEL, text_client, text_async_client
+    global VISUAL_API_KEY, VISUAL_BASE_URL, VISUAL_MODEL, visual_client, visual_async_client
 
-if not VISUAL_API_KEY or not VISUAL_BASE_URL:
-    raise ValueError("VISUAL environment variables are not configured. Please check .env.")
+    values = load_model_config_values()
 
-visual_client = build_sync_instructor_client(VISUAL_API_KEY, VISUAL_BASE_URL, json_mode=True)
-visual_async_client = build_async_instructor_client(VISUAL_API_KEY, VISUAL_BASE_URL, json_mode=True)
+    TEXT_API_KEY = values.get("TEXT_API_KEY", "")
+    TEXT_BASE_URL = normalize_openai_base_url(values.get("TEXT_BASE_URL", ""))
+    TEXT_MODEL = values.get("TEXT_MODEL", "gpt-5.4-mini") or "gpt-5.4-mini"
+
+    if TEXT_API_KEY and TEXT_BASE_URL:
+        text_client = build_sync_instructor_client(TEXT_API_KEY, TEXT_BASE_URL)
+        text_async_client = build_async_instructor_client(TEXT_API_KEY, TEXT_BASE_URL)
+    else:
+        text_client = None
+        text_async_client = None
+
+    VISUAL_API_KEY = values.get("VISUAL_API_KEY", "")
+    VISUAL_BASE_URL = normalize_openai_base_url(values.get("VISUAL_BASE_URL", ""))
+    VISUAL_MODEL = values.get("VISUAL_MODEL", "qwen3-vl-plus") or "qwen3-vl-plus"
+
+    if VISUAL_API_KEY and VISUAL_BASE_URL:
+        visual_client = build_sync_instructor_client(VISUAL_API_KEY, VISUAL_BASE_URL, json_mode=True)
+        visual_async_client = build_async_instructor_client(VISUAL_API_KEY, VISUAL_BASE_URL, json_mode=True)
+    else:
+        visual_client = None
+        visual_async_client = None
+
+
+reload_model_clients()
 
 __all__ = [
     "TEXT_MODEL",
+    "reload_model_clients",
     "text_client",
     "text_async_client",
     "VISUAL_MODEL",
