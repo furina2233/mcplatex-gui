@@ -39,18 +39,18 @@ class AboutPage(QWidget):
         card.setFixedWidth(400)
         layout = QHBoxLayout(card)
         layout.setContentsMargins(20, 15, 20, 15)
-        
+
         left_label = QLabel("版本")
         left_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        
+
         right_label = QLabel(f"v{VERSION}")
         right_label.setStyleSheet("font-size: 14px; color: #666666;")
         right_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        
+
         layout.addWidget(left_label)
         layout.addStretch()
         layout.addWidget(right_label)
-        
+
         return card
 
     def _create_repo_card(self) -> CardWidget:
@@ -59,17 +59,17 @@ class AboutPage(QWidget):
         card.setFixedWidth(400)
         layout = QHBoxLayout(card)
         layout.setContentsMargins(20, 15, 20, 15)
-        
+
         left_label = QLabel("仓库地址")
         left_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        
+
         github_btn = PushButton("GitHub", icon=FIF.LINK)
         github_btn.clicked.connect(self._open_github)
-        
+
         layout.addWidget(left_label)
         layout.addStretch()
         layout.addWidget(github_btn)
-        
+
         return card
 
     def _open_github(self):

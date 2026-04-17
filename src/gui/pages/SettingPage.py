@@ -1,11 +1,11 @@
 import os
 
-from dotenv import dotenv_values, set_key
-
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
-from qfluentwidgets import ExpandSettingCard, FluentIcon as FIF, InfoBar, InfoBarPosition, LineEdit, SettingCard, SpinBox
+from dotenv import dotenv_values, set_key
+from qfluentwidgets import ExpandSettingCard, InfoBar, InfoBarPosition, LineEdit, SettingCard, \
+    SpinBox
 
 from src.gui.utils.ScrollPageUtil import create_scrollable_page
 from src.llm_client import reload_model_clients

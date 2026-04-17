@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCursor
-from PySide6.QtWidgets import QTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QTextEdit, QVBoxLayout
 from qfluentwidgets import BodyLabel, CardWidget, ScrollArea
 
 
@@ -21,7 +21,7 @@ class TextLogCard(CardWidget):
         self.scroll_area.setMinimumHeight(self.title_label.sizeHint().height() * 10)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        
+
         # 创建只读文本编辑器作为滚动区域的内容
         self.text_edit = QTextEdit()
         self.text_edit.setReadOnly(True)
@@ -30,7 +30,7 @@ class TextLogCard(CardWidget):
         self.text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.text_edit.setFrameStyle(0)
-        
+
         self.scroll_area.setWidget(self.text_edit)
         self.layout.addWidget(self.scroll_area)
 

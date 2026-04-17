@@ -1,10 +1,11 @@
 # agents/visual_auditor.py
-from pydantic import Field
-from atomic_agents import AtomicAgent, AgentConfig
-from atomic_agents.context import ChatHistory
-from agent_setup import visual_auditor_config
-from atomic_agents import BaseIOSchema
 import instructor
+from atomic_agents import AtomicAgent, AgentConfig
+from atomic_agents import BaseIOSchema
+from atomic_agents.context import ChatHistory
+from pydantic import Field
+
+from agent_setup import visual_auditor_config
 
 
 class VisualAuditorInput(BaseIOSchema):
@@ -47,7 +48,7 @@ class VisualAuditorOutput(BaseIOSchema):
 
 
 def create_visual_auditor_agent(
-    client, model: str, history: ChatHistory | None = None
+        client, model: str, history: ChatHistory | None = None
 ) -> AtomicAgent:
     """
     创建并配置 Agent 4: 视觉差异审计员

@@ -1,32 +1,24 @@
 import asyncio
-import os
 import shutil
 from pathlib import Path
 
-from PySide6.QtCore import QThread, Signal, Qt
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QWidget, QVBoxLayout
 from qfluentwidgets import BodyLabel, CardWidget, ComboBox, PrimaryPushButton, PushButton, LineEdit, FluentIcon as FIF
 
 from src.gui.utils.ExplorerUtil import open_in_explorer
-from src.gui.utils.ScrollPageUtil import create_scrollable_page
 from src.gui.utils.MessageUtil import MessageType, show_message
+from src.gui.utils.ScrollPageUtil import create_scrollable_page
 from src.gui.widgets.TextLogCard import TextLogCard
 from src.latex_build_and_preview import build_and_preview
+from src.services.work_service import WorkService
 from src.services.workflow_support import (
-    cls_dir,
     tex_dir,
     create_work_name,
     list_template_files,
     list_tex_files,
-    load_cls_output,
-    load_work_item_sources,
-    normalize_cls_output,
     normalize_tex_documentclass,
-    save_final_results,
-    save_work_item,
 )
-from src.services.work_service import WorkService
-from src.utils.cls_builder import build_cls_code
 from src.utils.error_util import get_user_facing_error_message
 from src.utils.qt_log_bridge import QtConsoleBridge
 
@@ -224,7 +216,7 @@ class DocumentPage(QWidget):
         # 复制到 work/tex/
         file_name = Path(document_path).name
         dest_path = tex_dir() / file_name
-        
+
         # 如果文件已存在，添加时间戳避免冲突
         if dest_path.exists():
             timestamp = create_work_name()
@@ -252,13 +244,13 @@ class DocumentPage(QWidget):
     def _on_compile_clicked(self):
         self._refresh_template_options()
         self._refresh_tex_options()
-        
+
         template_name = self.template_combo.currentText().strip()
         template_path = self.template_path_map.get(template_name, "")
-        
+
         doc_name = self.document_combo.currentText().strip()
         document_path = self.tex_path_map.get(doc_name, self.document_path)
-        
+
         if not document_path:
             show_message(self, "请先导入或选择文档", MessageType.ERROR)
             return
@@ -370,7 +362,7 @@ class DocumentPage(QWidget):
             index = self.document_combo.findText(previous_name)
             if index >= 0:
                 self.document_combo.setCurrentIndex(index)
-    
+
     def on_template_generated(self, work_name: str):
         """
         槽函数:当模板区生成新模板和tex后被调用

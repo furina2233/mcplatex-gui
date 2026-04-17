@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-
 _MODEL_CONFIG_ERROR_PATTERNS = [
     r"api[-_ ]?key",
     r"authentication",

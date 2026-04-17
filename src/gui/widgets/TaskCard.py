@@ -34,8 +34,6 @@ class TaskCard(QScrollArea):
 
         self.__initWidget()
 
-
-
     def __initWidget(self):
         self.setWidget(self.scrollWidget)
         self.setWidgetResizable(True)

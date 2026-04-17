@@ -2,9 +2,7 @@ import json
 import os
 from typing import Any
 
-
 SETTINGS_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "settings.json")
-
 
 DEFAULT_SETTINGS = {
     "max_retries": 5,

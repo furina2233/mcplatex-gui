@@ -1,9 +1,11 @@
 # agents/style_analyzer.py
-import instructor
 from typing import List
-from pydantic import Field
+
+import instructor
 from atomic_agents import AtomicAgent, AgentConfig, BaseIOSchema
 from atomic_agents.context import ChatHistory
+from pydantic import Field
+
 from agent_setup import style_analyzer_config
 from schemas.style_schema import StyleAnalysisReport
 
@@ -26,7 +28,7 @@ class StyleAnalysisInput(BaseIOSchema):
 
 
 def create_style_analyzer_agent(
-    client, model: str, history: ChatHistory | None = None
+        client, model: str, history: ChatHistory | None = None
 ) -> AtomicAgent:
     """
     创建并配置 Agent 1: 样式分析师

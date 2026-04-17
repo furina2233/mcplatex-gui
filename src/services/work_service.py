@@ -9,9 +9,9 @@ from agents.cls_inspector import create_cls_inspector_agent
 from agents.combined_inspector import create_combined_inspector_agent
 from agents.debugger_agent import create_debugger_agent
 from agents.img_recognizer import create_img_recognizer_agent
+from agents.manual_adjustor import create_manual_adjustor_agent, ManualAdjustorInput
 from agents.tex_inspector import create_tex_inspector_agent
 from agents.visual_auditor import create_visual_auditor_agent
-from agents.manual_adjustor import create_manual_adjustor_agent, ManualAdjustorInput
 from services.compilation_service import CompilationService
 from services.generation_service import GenerationService
 from services.optimization_service import OptimizationService
@@ -101,7 +101,8 @@ class WorkService:
     async def repair_failed_compile(self, error_log: str, cls_code: str, tex_code: str, job_name: str = "template"):
         return await self.compilation_service.repair_failed_sources(error_log, cls_code, tex_code, job_name=job_name)
 
-    async def optimize_after_compile(self, style_report, cls_output, original_path: str, rendered_image: dict[str, str]):
+    async def optimize_after_compile(self, style_report, cls_output, original_path: str,
+                                     rendered_image: dict[str, str]):
         return await self.optimization_service.optimize(style_report, cls_output, original_path, rendered_image)
 
     async def quick_generate(self, image_paths: List[str] | None = None):
@@ -232,7 +233,8 @@ class WorkService:
         write_working_sources(self._work_name, self._current_cls_code, self._current_tex_code)
         save_iteration_snapshot(self._work_name, self._attempt, self._current_cls_code, self._current_tex_code)
 
-        compile_result = await self.compile_files(self._current_cls_code, self._current_tex_code, job_name=self._work_name)
+        compile_result = await self.compile_files(self._current_cls_code, self._current_tex_code,
+                                                  job_name=self._work_name)
         if not compile_result.pdf_generated:
             # 编译失败：使用文本inspector修复代码
             self.console.print("编译失败，正在尝试修复...")
@@ -313,8 +315,7 @@ class WorkService:
         将模型返回的字段修改列表应用到 _current_cls 配置对象
         modifications: list[CLSFieldModification]
         """
-        from agents.manual_adjustor import CLSFieldModification
-        from schemas.cls_schema import HeaderLineConfig, FooterLineConfig, FootnoteSettings
+        from schemas.cls_schema import HeaderLineConfig, FootnoteSettings
 
         for mod in modifications:
             field_path = mod.field_path

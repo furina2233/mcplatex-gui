@@ -1,10 +1,12 @@
 # agents/semantic_extractor.py
+from typing import List, Literal, Optional
+
 import instructor
-from pydantic import Field
 from atomic_agents import AtomicAgent, AgentConfig, BaseIOSchema
 from atomic_agents.context import ChatHistory
+from pydantic import Field
+
 from agent_setup import semantic_extractor_config
-from typing import List, Literal, Optional
 
 
 class SemanticExtractorOutput(BaseIOSchema):
@@ -81,7 +83,7 @@ class SemanticExtractorInput(BaseIOSchema):
 
 
 def create_semantic_extractor_agent(
-    client, model: str, history: ChatHistory | None = None
+        client, model: str, history: ChatHistory | None = None
 ) -> AtomicAgent:
     """
     创建并配置 Agent 3: 语义内容提取员

@@ -49,7 +49,8 @@ class CompilationService:
             job_name=artifacts.get("job_name", job_name),
         )
 
-    async def repair_failed_sources(self, error_log: str, cls_code: str, tex_code: str, job_name: str = "template") -> RepairResult:
+    async def repair_failed_sources(self, error_log: str, cls_code: str, tex_code: str,
+                                    job_name: str = "template") -> RepairResult:
         log_snippet = error_log[-3000:] if len(error_log) > 3000 else error_log
         debugger_input = DebuggerInput(
             error_log=log_snippet,
@@ -67,7 +68,8 @@ class CompilationService:
             repaired_cls: CLSInspectorOutput = await asyncio.to_thread(self.cls_inspector_agent.run, repair_input)
             cls_code = normalize_latex_source(repaired_cls.cls_doc_after)
             overwrite_working_source(job_name, "cls", cls_code)
-            return RepairResult(cls_code=cls_code, tex_code=tex_code, target_file="template.cls", debug_result=debug_result)
+            return RepairResult(cls_code=cls_code, tex_code=tex_code, target_file="template.cls",
+                                debug_result=debug_result)
 
         repair_input = TexInspectorInput(
             tex_doc=tex_code,

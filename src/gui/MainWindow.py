@@ -1,8 +1,5 @@
-import sys
-
 from PySide6.QtCore import QTimer
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QWidget, QApplication
 from qfluentwidgets import FluentWindow, FluentIcon as FIF, NavigationItemPosition
 from qfluentwidgets import InfoBar, InfoBarPosition
@@ -20,7 +17,8 @@ from src.utils.model_config import format_missing_model_config_message, get_miss
 timer = QTimer()
 
 # 防止导入被优化import删掉
-AboutPage,SettingPage,HomePage,TemplatePage,DocumentPage
+AboutPage, SettingPage, HomePage, TemplatePage, DocumentPage
+
 
 def _set_high_dpi_scaling():
     """
@@ -33,13 +31,14 @@ def _set_high_dpi_scaling():
             Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
         )
 
+
 class MainWindow(FluentWindow):
     def __init__(self):
         super().__init__()
         # _set_high_dpi_scaling()
 
         self.setWindowTitle("FreeWrite")
-        
+
         # 保存页面引用
         self.template_page = None
         self.document_page = None
@@ -47,10 +46,10 @@ class MainWindow(FluentWindow):
         self._model_config_prompt_shown = False
 
         size = get_screen_size(0.55)
-        size.setWidth(int(size.width()-(size.width()-size.height())/5))
+        size.setWidth(int(size.width() - (size.width() - size.height()) / 5))
         while float(size.width()) / float(size.height()) < 1.25:
             size.setWidth(int(size.width() * 1.25))
-        
+
         # 设置最小尺寸限制：宽度至少1280，高度至少800
         min_width = max(size.width(), 1280)
         min_height = max(size.height(), 800)
@@ -90,8 +89,8 @@ class MainWindow(FluentWindow):
         self.navigationInterface.setCollapsible(False)
         self._prompt_missing_model_config()
 
-    def _add_new_widget_to_navigation(self, icon:FIF, text:str, route_key:str,
-                                      position:NavigationItemPosition=NavigationItemPosition.TOP):
+    def _add_new_widget_to_navigation(self, icon: FIF, text: str, route_key: str,
+                                      position: NavigationItemPosition = NavigationItemPosition.TOP):
         widget = SquareNavigationWidget(icon=icon, text=text)
         class_name = route_key[0].upper() + route_key[1:]  # 把开头首字母转为大写，如 valuesPage 转为 ValuesPage
         if class_name in globals():
@@ -99,7 +98,7 @@ class MainWindow(FluentWindow):
             page = page(self)
             page.setObjectName(route_key)
             self.stackedWidget.addWidget(page)
-            
+
             # 保存页面引用
             if route_key == "templatePage":
                 self.template_page = page
@@ -107,14 +106,14 @@ class MainWindow(FluentWindow):
                 self.document_page = page
             elif route_key == "settingPage":
                 self.setting_page = page
-        
+
         self.navigationInterface.addWidget(
             routeKey=route_key,
             widget=widget,
             position=position,
-            onClick=lambda : self._on_navigation_widget_button_clicked(route_key, page)
+            onClick=lambda: self._on_navigation_widget_button_clicked(route_key, page)
         )
-        
+
         # 建立信号连接(在两个页面都创建完成后)
         if self.template_page and self.document_page:
             self._connect_pages()
@@ -144,7 +143,7 @@ class MainWindow(FluentWindow):
     def _on_navigation_widget_button_clicked(self, route_key: str, widget: QWidget):
         self.stackedWidget.setCurrentWidget(widget)
         self.navigationInterface.setCurrentItem(route_key)
-    
+
     def _connect_pages(self):
         """连接TemplatePage和DocumentPage的信号"""
         if self.template_page and self.document_page:

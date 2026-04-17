@@ -1,11 +1,10 @@
 # src/agents/combined_inspector.py
 # agents/combined_inspector.py
-import instructor
-from pydantic import Field
 from atomic_agents import AtomicAgent, AgentConfig, BaseIOSchema
 from atomic_agents.context import ChatHistory
+from pydantic import Field
+
 from agent_setup import combined_inspector_config
-from typing import List, Optional
 
 
 class CombinedInspectorOutput(BaseIOSchema):

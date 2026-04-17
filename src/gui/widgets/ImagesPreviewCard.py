@@ -13,10 +13,10 @@ class ImagesPreviewCard(CardWidget):
 
         self.layout = QVBoxLayout(self)
 
-        self.title_label = BodyLabel(parent=self,text="图片预览")
+        self.title_label = BodyLabel(parent=self, text="图片预览")
         self.layout.addWidget(self.title_label)
 
-        self.setFixedHeight(self.title_label.sizeHint().height()*10)
+        self.setFixedHeight(self.title_label.sizeHint().height() * 10)
 
         self.scroll_area = SingleDirectionScrollArea(self, orient=Qt.Horizontal)
         self.scroll_area.setWidgetResizable(True)
@@ -47,7 +47,7 @@ class ImagesPreviewCard(CardWidget):
                 item.widget().deleteLater()
         image_size = self.title_label.sizeHint().height() * 6
 
-        for i,path in enumerate(paths,start=1):
+        for i, path in enumerate(paths, start=1):
             image_item = ImagePreviewLabel(path, image_size, i, self)
             image_item.delete_button_clicked.connect(lambda p=path: self._on_delete_button_clicked(p))
             self.images_layout.addWidget(image_item)

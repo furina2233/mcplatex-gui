@@ -1,7 +1,7 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
-from qfluentwidgets import PushButton, LineEdit, CardWidget, BodyLabel, ProgressBar, InfoBar, InfoBarPosition
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout
 from qfluentwidgets import FluentIcon as FIF
+from qfluentwidgets import PushButton, LineEdit, CardWidget, BodyLabel, ProgressBar, InfoBar, InfoBarPosition
 
 
 class ManualAdjustmentCard(CardWidget):

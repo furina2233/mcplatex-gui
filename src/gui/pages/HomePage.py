@@ -1,5 +1,3 @@
-from time import time
-
 from PySide6.QtWidgets import QWidget
 
 from src.gui.utils.ScrollPageUtil import create_scrollable_page

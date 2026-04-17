@@ -1,10 +1,12 @@
 # agents/debugger_agent.py
-from pydantic import Field
-from atomic_agents import AtomicAgent, AgentConfig
-from atomic_agents.context import ChatHistory
-from agent_setup import compiler_debugger_config
 from typing import Literal
+
+from atomic_agents import AtomicAgent, AgentConfig
 from atomic_agents import BaseIOSchema
+from atomic_agents.context import ChatHistory
+from pydantic import Field
+
+from agent_setup import compiler_debugger_config
 
 
 class DebuggerInput(BaseIOSchema):
@@ -45,7 +47,7 @@ class DebuggerOutput(BaseIOSchema):
 
 
 def create_debugger_agent(
-    client, model: str, history: ChatHistory | None = None
+        client, model: str, history: ChatHistory | None = None
 ) -> AtomicAgent:
     """
     创建并配置 Agent 5: LaTeX 编译日志分析专家

@@ -1,11 +1,10 @@
 import asyncio
-import os
 import shutil
 from pathlib import Path
 
-from PySide6.QtCore import QThread, Signal, Qt
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QWidget, QVBoxLayout
-from qfluentwidgets import BodyLabel, CardWidget, ComboBox, PrimaryPushButton, PushButton, InfoBar, InfoBarPosition, LineEdit, TextEdit
+from qfluentwidgets import BodyLabel, CardWidget, ComboBox, PrimaryPushButton, PushButton, LineEdit
 from qfluentwidgets import FluentIcon as FIF
 
 from src.gui.utils.ExplorerUtil import open_in_explorer
@@ -13,12 +12,11 @@ from src.gui.utils.MessageUtil import MessageType, show_message
 from src.gui.utils.ScrollPageUtil import create_scrollable_page
 from src.gui.widgets.GenericImagesPreviewCard import GenericImagesPreviewCard
 from src.gui.widgets.TextLogCard import TextLogCard
+from src.services.work_service import WorkService
 from src.services.workflow_support import (
     cls_dir,
-    tex_dir,
     create_work_name,
     list_template_files,
-    list_tex_files,
     load_cls_output,
     load_work_item_sources,
     normalize_cls_output,
@@ -26,7 +24,6 @@ from src.services.workflow_support import (
     save_final_results,
     save_work_item,
 )
-from src.services.work_service import WorkService
 from src.utils.cls_builder import build_cls_code
 from src.utils.error_util import get_user_facing_error_message
 from src.utils.qt_log_bridge import QtConsoleBridge
@@ -57,7 +54,7 @@ class TemplateWorkflowThread(QThread):
         # 创建Qt日志桥接器，将console输出转发到log_message信号
         qt_console = QtConsoleBridge()
         qt_console.log_message.connect(self.log_message.emit)
-        
+
         service = WorkService(self.image_paths, console=qt_console)
         if self.mode in {"extract_validate", "extract_only"}:
             return await self._run_extract(service)
@@ -156,7 +153,8 @@ class TemplateWorkflowThread(QThread):
                 source_images=self.image_paths,
             )
 
-            revised_compile_result = await service.compile_files(revised_cls_code, revised_tex_code, job_name=new_work_name)
+            revised_compile_result = await service.compile_files(revised_cls_code, revised_tex_code,
+                                                                 job_name=new_work_name)
             if not revised_compile_result.pdf_generated or not revised_compile_result.images:
                 raise RuntimeError("优化后的模板编译失败。")
             self.log_message.emit("编译成功")
@@ -245,7 +243,7 @@ class ManualAdjustThread(QThread):
 class TemplatePage(QWidget):
     # 信号:当新模板和tex生成后发出
     template_generated = Signal(str)  # 参数为新生成的work_name
-    
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.setObjectName("templatePage")
@@ -450,7 +448,7 @@ class TemplatePage(QWidget):
         # 复制到 work/cls/
         file_name = Path(cls_path).name
         dest_path = cls_dir() / file_name
-        
+
         # 如果文件已存在，添加时间戳避免冲突
         if dest_path.exists():
             timestamp = create_work_name()

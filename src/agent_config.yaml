@@ -284,9 +284,9 @@ agents:
              - 如果是 "Undefined control sequence"，看这个命令是应该由宏包提供（CLS问题）还是正文写错了命令（TEX问题）。
         - 3. 生成清晰的修复建议。
         - 4. 如果出现了找不到binhex.tex文件的问题，直接给出以下修复建议：
-             - 在template.cls文件中的*开头*添加"""\makeatletter
-                \@namedef{ver@binhex.tex}{2006/10/11} % 伪造加载记录
-                \makeatother"""一定要在开头添加
+          - 在template.cls文件中的*开头*添加"""\makeatletter
+          \@namedef{ver@binhex.tex}{2006/10/11} % 伪造加载记录
+          \makeatother"""一定要在开头添加
         - 5. 修复找不到bintex.tex文件的问题时，一定要在template.cls的开头添加修复代码，不能在中间添加
 
       output_instructions:
@@ -365,8 +365,8 @@ agents:
         - 3. **跨文件依赖检查 (关键核心)**：
           - **命令溯源**：检查 .tex 中使用的所有命令（如 `\includegraphics`, `\begin{tikzpicture}`, `\multirow`, `\intertext` 等）。
           - **缺失修复**：若 .tex 使用了某功能但在两个文件中均未加载对应宏包：
-            - 若该功能属于模板通用功能，在 `cls_doc` 中添加 `\RequirePackage{...}`。
-            - 若该功能仅为正文特有，在 `tex_doc` 中添加 `\usepackage{...}`。
+          - 若该功能属于模板通用功能，在 `cls_doc` 中添加 `\RequirePackage{...}`。
+          - 若该功能仅为正文特有，在 `tex_doc` 中添加 `\usepackage{...}`。
           - **冗余清理**：若 .cls 已加载某宏包，则从 .tex 中移除重复的 `\usepackage` 语句。
         - 4. **常规语法校验**：
           - 检查命令闭合、特殊字符转义、数学环境匹配。

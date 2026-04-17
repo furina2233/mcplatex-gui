@@ -20,7 +20,6 @@ class PreviewPage(QWidget):
 
         self.setStyleSheet("background: transparent;")
 
-
     def _add_file_selection_box(self):
         self.toolBarLayout = QHBoxLayout()
         self.toolBarLayout.setContentsMargins(0, 5, 0, 5)
@@ -30,7 +29,8 @@ class PreviewPage(QWidget):
 
         self.configLabel = BodyLabel("查看文件", self.scrollWidget)
         self.comboBox = ComboBox(self.scrollWidget)
-        self.comboBox.addItems(['../result/main.tex','../result/template.cls','../result/main.log','../src/llm_request.log'])
+        self.comboBox.addItems(
+            ['../result/main.tex', '../result/template.cls', '../result/main.log', '../src/llm_request.log'])
         self.comboBox.setCurrentIndex(0)
         self.comboBox.setMinimumWidth(200)
         self.comboBox.currentIndexChanged.connect(self._refresh_table_data)

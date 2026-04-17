@@ -20,7 +20,6 @@ from schemas.cls_schema import (
 )
 from schemas.style_schema import StyleAnalysisReport
 
-
 HEADER_FOOTER_RESTORATION_GUIDANCE = (
     "Pay special attention to the page header and footer. If the header contains a journal name or other running text, "
     "restore that structure exactly instead of dropping it, including any multi-line header. If there is a horizontal "
@@ -194,12 +193,12 @@ def save_iteration_snapshot(work_name: str, attempt: int, cls_code: str, tex_cod
 
 
 def save_work_item(
-    work_name: str,
-    cls_code: str,
-    tex_code: str,
-    cls_output: CLSGeneratorOutput | None = None,
-    style_report: StyleAnalysisReport | None = None,
-    source_images: list[str] | None = None,
+        work_name: str,
+        cls_code: str,
+        tex_code: str,
+        cls_output: CLSGeneratorOutput | None = None,
+        style_report: StyleAnalysisReport | None = None,
+        source_images: list[str] | None = None,
 ) -> dict[str, str]:
     paths = work_item_paths(work_name)
     paths["cls"].write_text(normalize_latex_source(cls_code), encoding="utf-8")
@@ -219,14 +218,14 @@ def save_work_item(
 
 
 def save_final_results(
-    work_name: str,
-    cls_output: CLSGeneratorOutput,
-    tex_output: SemanticExtractorOutput | None,
-    cls_code: str,
-    tex_code: str,
-    images,
-    style_report: StyleAnalysisReport | None = None,
-    source_images: list[str] | None = None,
+        work_name: str,
+        cls_output: CLSGeneratorOutput,
+        tex_output: SemanticExtractorOutput | None,
+        cls_code: str,
+        tex_code: str,
+        images,
+        style_report: StyleAnalysisReport | None = None,
+        source_images: list[str] | None = None,
 ) -> dict[str, str]:
     return save_work_item(
         work_name=work_name,
@@ -272,7 +271,7 @@ def ensure_cls_output_proper_types(cls_output: CLSGeneratorOutput) -> CLSGenerat
     确保 CLSGeneratorOutput 中的嵌套对象是正确类型而非 dict。
     这在从 JSON 加载或从 LLM 返回后特别有用。
     """
-    from schemas.cls_schema import HeaderLineConfig, FooterLineConfig, FootnoteSettings
+    from schemas.cls_schema import HeaderLineConfig, FootnoteSettings
 
     # 确保 header_footer.journal_header_lines 中的元素是 HeaderLineConfig
     if cls_output.header_footer and cls_output.header_footer.journal_header_lines:
@@ -312,7 +311,8 @@ def parse_generated_cls_code(cls_code: str, class_name: str | None = None) -> CL
     base_font_size = next((item for item in options if item.endswith("pt")), "10pt")
     is_twocolumn = "twocolumn" in options
 
-    geometry_options = _parse_option_string(_extract_first_group(r"\\RequirePackage\[([^\]]+)\]\{geometry\}", cls_code, ""))
+    geometry_options = _parse_option_string(
+        _extract_first_group(r"\\RequirePackage\[([^\]]+)\]\{geometry\}", cls_code, ""))
     geometry = GeometrySettings(
         paper_size=geometry_options.get("paper_size", "a4paper"),
         top_margin=geometry_options.get("top", "72pt"),
@@ -335,7 +335,8 @@ def parse_generated_cls_code(cls_code: str, class_name: str | None = None) -> CL
     )
 
     additional_packages = []
-    core_packages = {"geometry", "fontspec", "xeCJK", "unicode-math", "microtype", "fancyhdr", "titlesec", "caption", "xcolor", "graphicx"}
+    core_packages = {"geometry", "fontspec", "xeCJK", "unicode-math", "microtype", "fancyhdr", "titlesec", "caption",
+                     "xcolor", "graphicx"}
     for package in re.findall(r"\\RequirePackage(?:\[[^\]]+\])?\{([^}]+)\}", cls_code):
         if package not in core_packages and package not in additional_packages:
             additional_packages.append(package)
@@ -354,7 +355,8 @@ def parse_generated_cls_code(cls_code: str, class_name: str | None = None) -> CL
         first_page_header_center=_extract_fancy_value(firstpage_block, "head", "C"),
         first_page_header_right=_extract_fancy_value(firstpage_block, "head", "R"),
         first_page_footer_center=_extract_fancy_value(firstpage_block, "foot", "C"),
-        first_page_has_rule=_extract_first_group(r"\\renewcommand\{\\headrulewidth\}\{([^}]+)\}", firstpage_block, "0pt") != "0pt",
+        first_page_has_rule=_extract_first_group(r"\\renewcommand\{\\headrulewidth\}\{([^}]+)\}", firstpage_block,
+                                                 "0pt") != "0pt",
         running_header_left=_extract_fancy_value(cls_code, "head", "L"),
         running_header_center=_extract_fancy_value(cls_code, "head", "C"),
         running_header_right=_extract_fancy_value(cls_code, "head", "R", default="\\thepage"),
@@ -416,7 +418,8 @@ def parse_generated_cls_code(cls_code: str, class_name: str | None = None) -> CL
     left_indent = _extract_first_group(r"\\setlength\{\\leftmargin\}\{([^}]+)\}", cls_code, "0pt")
     right_indent = _extract_first_group(r"\\setlength\{\\rightmargin\}\{([^}]+)\}", cls_code, "0pt")
     abstract_line = _find_line_containing(lines, "\\item[]{\\noindent")
-    abstract_heading = _extract_first_group(r"\\item\[\]\{\\noindent(?:\\bfseries\s+)?([^}]+)\}", abstract_line, "Abstract")
+    abstract_heading = _extract_first_group(r"\\item\[\]\{\\noindent(?:\\bfseries\s+)?([^}]+)\}", abstract_line,
+                                            "Abstract")
     abstract_font = _parse_font_fragment(_extract_first_group(r"\\par\\noindent(.*)", abstract_line, "", flags=re.S))
     abstract = AbstractSettings(
         font_size=abstract_font["size"],

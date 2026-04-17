@@ -1,8 +1,9 @@
 # agent_setup.py
-import yaml
 import os
 from dataclasses import dataclass
 from typing import Dict
+
+import yaml
 from atomic_agents.context import SystemPromptGenerator
 
 

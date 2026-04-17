@@ -1,7 +1,8 @@
 # agents/cls_generator.py
-from pydantic import Field
 from atomic_agents import AtomicAgent, AgentConfig, BaseIOSchema
 from atomic_agents.context import ChatHistory
+from pydantic import Field
+
 from agent_setup import cls_generator_config
 from schemas.cls_schema import CLSGeneratorOutput
 from schemas.style_schema import StyleAnalysisReport
@@ -34,7 +35,7 @@ class CLSGeneratorInput(BaseIOSchema):
 
 
 def create_cls_generator_agent(
-    client, model: str, history: ChatHistory | None = None
+        client, model: str, history: ChatHistory | None = None
 ) -> AtomicAgent:
     """
     创建并配置 Agent 2: 模板架构师

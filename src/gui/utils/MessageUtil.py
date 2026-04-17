@@ -8,6 +8,7 @@ class MessageType(Enum):
     SUCCESS = 0
     ERROR = 1
 
+
 def show_message(parent: QFrame, text: str, message_type: MessageType):
     if message_type == MessageType.SUCCESS:
         InfoBar.success(

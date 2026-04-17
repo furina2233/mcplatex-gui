@@ -22,7 +22,7 @@ class CLSInspectorInput(BaseIOSchema):
 
 
 def create_cls_inspector_agent(
-    client, model: str, history: ChatHistory | None = None
+        client, model: str, history: ChatHistory | None = None
 ) -> AtomicAgent:
     if history is None:
         history = ChatHistory()

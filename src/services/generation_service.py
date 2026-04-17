@@ -32,7 +32,8 @@ class GenerationService:
         )
         return self.style_agent.run(style_input)
 
-    async def generate(self, image_paths: list[str]) -> tuple[StyleAnalysisReport, CLSGeneratorOutput, SemanticExtractorOutput]:
+    async def generate(self, image_paths: list[str]) -> tuple[
+        StyleAnalysisReport, CLSGeneratorOutput, SemanticExtractorOutput]:
         style_report = await asyncio.to_thread(self.analyze_style, image_paths)
 
         cls_input = CLSGeneratorInput(

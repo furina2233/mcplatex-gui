@@ -5,7 +5,6 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 
-
 REQUIRED_MODEL_ENV_KEYS = [
     "TEXT_API_KEY",
     "TEXT_BASE_URL",

@@ -1,5 +1,4 @@
 # llm_client.py
-import os
 from pathlib import Path
 
 import httpx

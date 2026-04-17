@@ -2,9 +2,11 @@
 """手动调整Agent：根据用户反馈修改LaTeX模板配置"""
 
 import json
-from pydantic import Field
+
 from atomic_agents import AtomicAgent, AgentConfig, BaseIOSchema
 from atomic_agents.context import ChatHistory, SystemPromptGenerator
+from pydantic import Field
+
 from llm_client import TEXT_MODEL, text_client
 from schemas.cls_schema import CLSGeneratorOutput
 
@@ -89,7 +91,7 @@ def _build_system_prompt() -> SystemPromptGenerator:
 
 
 def create_manual_adjustor_agent(
-    client=None, model: str = TEXT_MODEL, history: ChatHistory | None = None
+        client=None, model: str = TEXT_MODEL, history: ChatHistory | None = None
 ) -> AtomicAgent:
     """
     创建并配置手动调整Agent

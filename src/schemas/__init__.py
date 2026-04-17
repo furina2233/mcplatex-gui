@@ -1,5 +1,4 @@
 # schemas/__init__.py
-from .style_schema import StyleAnalysisReport, FontFeature, PageLayout, SpacingFeature
 from .cls_schema import (
     CLSGeneratorOutput,
     GeometrySettings,
@@ -12,6 +11,7 @@ from .cls_schema import (
     ParagraphSettings,
     CaptionSettings,
 )
+from .style_schema import StyleAnalysisReport, FontFeature, PageLayout, SpacingFeature
 
 __all__ = [
     "StyleAnalysisReport",

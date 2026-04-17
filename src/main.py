@@ -1,5 +1,4 @@
 import sys
-import ctypes
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication

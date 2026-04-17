@@ -4,13 +4,14 @@ from qfluentwidgets import (NavigationWidget, isDarkTheme, drawIcon,
                             setFont)
 from qfluentwidgets.common.color import autoFallbackThemeColor
 
+
 class SquareNavigationWidget(NavigationWidget):
     def __init__(self, icon, text, parent=None):
         super().__init__(isSelectable=True, parent=parent)
         self._icon = icon
         self._text = text
         setFont(self)
-        self.setFixedSize(68,68)
+        self.setFixedSize(68, 68)
 
     def paintEvent(self, e):
         painter = QPainter(self)
@@ -60,10 +61,13 @@ class SquareNavigationWidget(NavigationWidget):
         # 文字绘制在图标下方，留出 4px 间距
         text_rect = QRectF(0, icon_rect.bottom() + 4, self.width(), 20)
         painter.drawText(text_rect, Qt.AlignCenter, self._text)
+
     def icon(self):
         return self._icon
+
     def text(self):
         return self._text
+
     def resizeEvent(self, e):
         super().resizeEvent(e)
-        self.setFixedHeight(int(self.width()*0.9))  # 导航栏部件的高度为宽度的90%
+        self.setFixedHeight(int(self.width() * 0.9))  # 导航栏部件的高度为宽度的90%

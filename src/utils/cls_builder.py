@@ -18,7 +18,7 @@ def sanitize_custom_commands(custom_commands: str) -> str:
         "\\setCJKmonofont",
         "\\setCJKfamilyfont",
     ]
-    
+
     lines = normalized.split("\n")
     filtered_lines = []
     for line in lines:
@@ -29,7 +29,7 @@ def sanitize_custom_commands(custom_commands: str) -> str:
         if any(cmd in stripped for cmd in cjk_font_commands):
             continue
         filtered_lines.append(line)
-    
+
     return "\n".join(filtered_lines).strip()
 
 
@@ -217,14 +217,15 @@ def build_cls_code(config: CLSGeneratorOutput) -> str:
     lines.append(f"  \\renewcommand{{\\headrulewidth}}{{{first_page_rule}}}")
     lines.append("}")
     lines.append("")
-    
+
     # 脚注配置（新增）
     lines.append("% Footnotes")
     if fn.use_symbol_marks:
         lines.append("\\renewcommand{\\thefootnote}{\\fnsymbol{footnote}}")
     else:
         lines.append(f"\\renewcommand{{\\thefootnote}}{{{fn.footnote_numbering_format}}}")
-    lines.append(f"\\renewcommand{{\\footnoterule}}{{\\vspace{{{fn.footnote_rule_skip}}}\\hrule width \\columnwidth height {fn.footnote_rule_width}\\vspace{{2pt}}}}")
+    lines.append(
+        f"\\renewcommand{{\\footnoterule}}{{\\vspace{{{fn.footnote_rule_skip}}}\\hrule width \\columnwidth height {fn.footnote_rule_width}\\vspace{{2pt}}}}")
     if fn.footnote_indent != "0pt":
         lines.append(f"\\setlength{{\\footnotemargin}}{{{fn.footnote_indent}}}")
     lines.append("")
@@ -293,7 +294,7 @@ def build_cls_code(config: CLSGeneratorOutput) -> str:
     lines.append("% Abstract")
     lines.append("\\renewenvironment{abstract}{%")
     lines.append(f"  \\vspace{{{abstract_cfg.space_before}}}%")
-    lines.append("  \\begin{list}{}{%" )
+    lines.append("  \\begin{list}{}{%")
     lines.append(f"    \\setlength{{\\leftmargin}}{{{abstract_cfg.left_indent}}}%")
     lines.append(f"    \\setlength{{\\rightmargin}}{{{abstract_cfg.right_indent}}}%")
     lines.append("  }%")

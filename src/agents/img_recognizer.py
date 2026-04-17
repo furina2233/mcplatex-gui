@@ -20,6 +20,8 @@ class ImgRecognizerOutput(BaseIOSchema):
         ...,
         description="LaTeX (.cls) 代码。",
     )
+
+
 class ImgRecognizerInput(BaseIOSchema):
     """
        图像识别器的输入，包含待分析的图片和指令。
@@ -30,8 +32,10 @@ class ImgRecognizerInput(BaseIOSchema):
     images: List[instructor.Image] = Field(
         ..., description="论文截图列表。通常包含：[图1:首页, 图2:内页]。"
     )
+
+
 def create_img_recognizer_agent(
-    client, model: str, history: ChatHistory | None = None
+        client, model: str, history: ChatHistory | None = None
 ) -> AtomicAgent:
     """
     创建并配置 Agent 1: 图片识别器

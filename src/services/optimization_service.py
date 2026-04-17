@@ -18,7 +18,8 @@ class OptimizationService:
         self.cls_agent = cls_agent
         self.console = console
 
-    def audit(self, original_path: str, rendered_image: dict[str, str], cls_output: CLSGeneratorOutput) -> VisualAuditorOutput:
+    def audit(self, original_path: str, rendered_image: dict[str, str],
+              cls_output: CLSGeneratorOutput) -> VisualAuditorOutput:
         audit_input = VisualAuditorInput(
             images=[
                 instructor.Image.from_path(original_path),
@@ -37,11 +38,11 @@ class OptimizationService:
         return self.visual_auditor_agent.run(audit_input)
 
     async def optimize(
-        self,
-        style_report: StyleAnalysisReport,
-        cls_output: CLSGeneratorOutput,
-        original_path: str,
-        rendered_image: dict[str, str],
+            self,
+            style_report: StyleAnalysisReport,
+            cls_output: CLSGeneratorOutput,
+            original_path: str,
+            rendered_image: dict[str, str],
     ) -> tuple[CLSGeneratorOutput, VisualAuditorOutput]:
         audit_result = await asyncio.to_thread(self.audit, original_path, rendered_image, cls_output)
         if audit_result.passed:

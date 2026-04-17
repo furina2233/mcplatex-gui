@@ -166,7 +166,8 @@ class FootnoteSettings(BaseIOSchema):
         description="首页底部脚注内容（如基金信息、通讯作者、收稿日期等）。支持LaTeX格式代码。注意：脚注必须放在页面底部，绝对不能出现在正文中间。",
     )
     first_page_footnote_font_size: str = Field(default="\\footnotesize", description="首页脚注字体大小")
-    first_page_footnote_alignment: Literal["left", "center", "right"] = Field(default="left", description="首页脚注对齐方式")
+    first_page_footnote_alignment: Literal["left", "center", "right"] = Field(default="left",
+                                                                              description="首页脚注对齐方式")
 
     # 正文脚注样式
     footnote_font_size: str = Field(default="\\footnotesize", description="正文脚注字体大小")

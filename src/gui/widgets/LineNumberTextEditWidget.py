@@ -25,6 +25,7 @@ class LineNumberArea(QWidget):
 
         self.editor._line_number_area_paint_event(event, text_color)
 
+
 class LineNumberTextEdit(PlainTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
