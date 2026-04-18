@@ -55,3 +55,15 @@
 
 在文档区可以选择TEX文档和模板进行编译，也可以要求大模型对文档进行调整。
 ![](res/docs/2.png)
+
+---
+## 许可证
+
+
+本项目采用 **AGPL-3.0** 许可证开源（详见 [LICENSE](LICENSE) ）。
+本项目尊重所有依赖库的许可证要求。商业用途需购买相关组件的商业许可证。
+
+---
+## 致谢
+1. [BrainBlend-AI/atomic-agents](https://github.com/BrainBlend-AI/atomic-agents)
+2. [zhiyiYo/PyQt-Fluent-Widgets](https://github.com/zhiyiYo/PyQt-Fluent-Widgets)
